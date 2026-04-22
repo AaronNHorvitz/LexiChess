@@ -1,0 +1,222 @@
+from __future__ import annotations
+
+import json
+import sqlite3
+from pathlib import Path
+from typing import Any
+
+from lexichess.storage.schema import SCHEMA_STATEMENTS
+
+
+class SQLiteRepository:
+    def __init__(self, database_path: str | Path) -> None:
+        self.database_path = Path(database_path)
+
+    def initialize(self) -> None:
+        self.database_path.parent.mkdir(parents=True, exist_ok=True)
+        with self._connect() as connection:
+            for statement in SCHEMA_STATEMENTS:
+                connection.execute(statement)
+            connection.commit()
+
+    def create_game(
+        self,
+        *,
+        white_provider: str,
+        white_model: str,
+        black_provider: str,
+        black_model: str,
+        initial_fen: str,
+        status: str = "running",
+    ) -> int:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO games (
+                    white_provider,
+                    white_model,
+                    black_provider,
+                    black_model,
+                    initial_fen,
+                    status
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    white_provider,
+                    white_model,
+                    black_provider,
+                    black_model,
+                    initial_fen,
+                    status,
+                ),
+            )
+            connection.commit()
+            return int(cursor.lastrowid)
+
+    def finish_game(
+        self,
+        game_id: int,
+        *,
+        status: str,
+        result: str | None,
+        termination_reason: str | None,
+    ) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE games
+                SET ended_at = CURRENT_TIMESTAMP,
+                    status = ?,
+                    result = ?,
+                    termination_reason = ?
+                WHERE id = ?
+                """,
+                (status, result, termination_reason, game_id),
+            )
+            connection.commit()
+
+    def log_turn(
+        self,
+        *,
+        game_id: int,
+        ply: int,
+        color: str,
+        provider: str,
+        model: str,
+        prompt: str,
+        instructions: str,
+        raw_response_text: str,
+        raw_response_json: dict[str, Any] | None,
+        candidate_move: str | None,
+        parsed_move_san: str | None,
+        parsed_move_uci: str | None,
+        fen_before: str,
+        fen_after: str | None,
+        is_legal: bool,
+        latency_ms: int | None,
+        error: str | None,
+    ) -> int:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO turns (
+                    game_id,
+                    ply,
+                    color,
+                    provider,
+                    model,
+                    prompt,
+                    instructions,
+                    raw_response_text,
+                    raw_response_json,
+                    candidate_move,
+                    parsed_move_san,
+                    parsed_move_uci,
+                    fen_before,
+                    fen_after,
+                    is_legal,
+                    latency_ms,
+                    error
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    game_id,
+                    ply,
+                    color,
+                    provider,
+                    model,
+                    prompt,
+                    instructions,
+                    raw_response_text,
+                    _dump_json(raw_response_json),
+                    candidate_move,
+                    parsed_move_san,
+                    parsed_move_uci,
+                    fen_before,
+                    fen_after,
+                    1 if is_legal else 0,
+                    latency_ms,
+                    error,
+                ),
+            )
+            connection.commit()
+            return int(cursor.lastrowid)
+
+    def log_hallucination(
+        self,
+        *,
+        game_id: int,
+        turn_id: int | None,
+        color: str,
+        provider: str,
+        model: str,
+        raw_response_text: str,
+        candidate_move: str | None,
+        reason: str,
+        details: str | None = None,
+    ) -> int:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO hallucinations (
+                    game_id,
+                    turn_id,
+                    color,
+                    provider,
+                    model,
+                    raw_response_text,
+                    candidate_move,
+                    reason,
+                    details
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    game_id,
+                    turn_id,
+                    color,
+                    provider,
+                    model,
+                    raw_response_text,
+                    candidate_move,
+                    reason,
+                    details,
+                ),
+            )
+            connection.commit()
+            return int(cursor.lastrowid)
+
+    def get_game(self, game_id: int) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM games WHERE id = ?",
+                (game_id,),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def list_turns(self, game_id: int) -> list[dict[str, Any]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT * FROM turns WHERE game_id = ? ORDER BY ply ASC",
+                (game_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def list_hallucinations(self, game_id: int) -> list[dict[str, Any]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT * FROM hallucinations WHERE game_id = ? ORDER BY id ASC",
+                (game_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def _connect(self) -> sqlite3.Connection:
+        connection = sqlite3.connect(self.database_path)
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA foreign_keys = ON")
+        return connection
+
+
+def _dump_json(payload: dict[str, Any] | None) -> str | None:
+    if payload is None:
+        return None
+    return json.dumps(payload, sort_keys=True)

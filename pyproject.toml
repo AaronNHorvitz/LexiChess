@@ -1,38 +1,36 @@
-```toml
-[tool.poetry]
+[project]
 name = "lexichess"
 version = "0.1.0"
-description = "A Python-based platform for LLM chess tournaments, tutoring, and API functionality"
-authors = ["Your Name <your.email@example.com>"]
-license = "MIT"
+description = "MVP runtime for evaluating LLMs through chess"
 readme = "README.md"
+requires-python = ">=3.10,<4.0"
+authors = [{ name = "LexiChess contributors" }]
+dependencies = [
+    "httpx>=0.28.0,<1.0.0",
+    "python-chess>=1.999,<2.0.0",
+    "python-dotenv>=1.0.0,<2.0.0",
+]
 
-[tool.poetry.dependencies]
-python = "^3.10"
-python-chess = "^1.0.0"
-sqlite3 = "*"  # Included in Python standard library
-requests = "^2.28.0"  # For API-based LLMs (e.g., Grok, OpenAI)
-ollama = "^0.1.0"  # For local LLMs (e.g., LLaMA)
-flask = "^2.2.0"  # Backend for web UI and API
-flask-restful = "^0.3.9"  # For API endpoints
-jupyter = "^1.0.0"  # For /Notebooks/
-three = "^0.1.0"  # For Three.js in tutoring avatar (via PyPI wrapper)
+[tool.poetry]
+package-mode = false
 
-[tool.poetry.dev-dependencies]
-pytest = "^7.0.0"
-black = "^22.0.0"
-flake8 = "^5.0.0"
-pytest-cov = "^4.0.0"  # For test coverage
+[tool.poetry.group.dev.dependencies]
+black = "^24.0.0"
+pytest = "^8.0.0"
+ruff = "^0.6.0"
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
+requires = ["poetry-core>=1.8.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.black]
 line-length = 88
-target-version = ['py310']
+target-version = ["py310"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-python_files = "test_*.py"
-```
+python_files = ["test_*.py"]

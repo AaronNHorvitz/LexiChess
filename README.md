@@ -1,83 +1,384 @@
 # LexiChess
 
-LexiChess is an open-source Python-based platform that orchestrates chess matches between large language models (LLMs), logs gameplay, tracks conversations, and identifies hallucinations (invalid moves or reasoning errors). It also offers interactive chess tutoring through a conversational AI avatar and exposes its functionality via a developer API, making it a powerful tool for AI research, chess education, and entertainment. Built with `python-chess` for game mechanics, SQLite for data storage, and Stockfish for baseline rankings, LexiChess supports API-based LLMs (e.g., ChatGPT, Grok via xAI API) and local LLMs (e.g., LLaMA via Ollama). The project aims to study LLM behavior, teach chess across skill levels, and evolve into a freemium web and mobile app.
+LexiChess is building the arena for self-hosted LLM chess: part benchmark lab, part live sports broadcast, and part interactive game room for unforgettable AI chess personalities.
 
-## Features
-1. **Automated LLM Tournaments**: Runs chess matches between LLMs with tournament-style time controls (e.g., 5+3), logging moves, conversations, and hallucinations for research.
-2. **Chess Tutoring**: Delivers interactive lessons (beginner to advanced) via a conversational AI avatar, covering rules, tactics, openings, and strategy with personalized feedback.
-3. **Web UI**: Allows human players to compete against LLMs, Stockfish, or other humans, with adjustable difficulty and access to tutoring.
-4. **Move Commentary**: Analyzes moves using an open-source opening library (e.g., Lichess database) for real-time insights.
-5. **Conversational Avatar**: A human-like AI for tutoring and post-game discussions, supporting text and voice interaction.
-6. **Developer API**: Provides programmatic access to tournaments, game data, and tutoring interactions for researchers and developers.
-7. **Win Probability Simulations**: Simulates game outcomes to predict win probabilities for research and strategy.
+At its core, LexiChess is an open source Python project for evaluating large language models through chess. The current MVP slice can already run model-vs-model games from the CLI, validate moves against the rules of chess, log prompts and responses to SQLite, and track hallucinated or illegal moves.
 
-## Tech Stack
-- **Core**: Python 3.10+, `python-chess` for chess mechanics and move validation.
-- **Database**: SQLite for game states, move logs, conversations, hallucinations, and lesson progress.
-- **LLM Integration**:
-  - API-based: xAI Grok API, OpenAI API.
-  - Local: Ollama for LLaMA or similar models.
-- **Chess Engine**: Stockfish for baseline rankings and human vs. AI gameplay.
-- **Web UI**: Flask (backend), React with `chessboard.js` (frontend), WebSocket for real-time updates.
-- **Tutoring**: ElevenLabs or Mozilla TTS for voice output, Web Speech API for speech-to-text, Three.js for avatar visuals.
-- **API**: Flask-RESTful for REST endpoints, OAuth2 or API keys for authentication.
-- **Mobile App (Planned)**: React Native for iOS/Android.
-- **Time Controls**: Custom Python implementation for tournament rules (e.g., 5+3, 10+0).
+The project is now aimed at self-hosted inference only. The move-playing models, the optional `Gemma` showmatch player preset, the `Gemma 4` referee, and the analysis stack should all run on hardware we control instead of depending on third-party model APIs.
 
-## System Requirements
-- Python 3.10 or higher.
-- SQLite 3.35 or higher.
-- Node.js 16+ for frontend development.
-- Stockfish 15+ for chess engine integration.
-- (Optional) Ollama for local LLM deployment.
-- Internet access for API-based LLMs (e.g., Grok, ChatGPT).
+The long-term product direction is bigger than a CLI benchmark harness. LexiChess is intended to grow into a paid, authenticated website app where people can create accounts, start games, jump into live LLM matches, hand seats back and forth between humans and models, watch ridiculous referee-mediated showmatches online, and play chess with distinct AI characters that talk, react, teach, taunt, and remember their role.
 
-## Project Structure
+The big idea is simple: make LLM benchmarking rigorous enough for builders and entertaining enough for everyone else.
+
+## Project Status
+
+This repository contains a runnable backend MVP, but it is still early-stage. There is no web UI yet, and the project is not a full tournament platform or tutoring product. Accounts, billing, subscriptions, and the online app experience are still planned rather than implemented. The implemented slice is focused on the core research/runtime loop:
+
+- local-runtime adapters
+- chess move parsing and legal-move validation
+- SQLite logging for games, turns, and hallucinations
+- a CLI to run a single game between two configured local model backends
+
+## Product Positioning
+
+LexiChess is designed to sit at the intersection of:
+
+- `benchmarking`: measure how strong models are, how often they hallucinate, and how reliably they recover
+- `entertainment`: turn model-vs-model chess into something spectators actually want to watch
+- `participation`: let humans jump into live games, chat with the players, and hand control back to an LLM
+- `governance`: maintain a licensing-safe public `Chess Index` for self-hosted models we can actually run in production
+- `characters`: let users build affinity for memorable chess personalities with different voices, avatars, tones, and coaching styles
+
+What should make LexiChess feel different:
+
+- deterministic chess truth instead of vibes-based move validation
+- a public `Chess Index` built around reproducibility, not hype
+- a comedy-forward showmatch layer without contaminating benchmark mode
+- a rational `Gemma 4` referee who keeps the chaos understandable
+- a character layer that turns the same chess core into very different playable personalities
+
+## Implemented MVP Slice
+
+- Run repeatable model-vs-model chess games from the command line
+- Validate SAN and legal moves with `python-chess`
+- Log prompts, raw model outputs, parsed moves, and error states into SQLite
+- Track hallucinations such as illegal moves, invalid SAN, empty responses, and non-move outputs
+- Keep the runtime adapter-based so the same game loop can work with multiple self-hosted runtimes
+
+## Local Runtime Strategy
+
+LexiChess should not hardcode runtime-specific behavior into the chess loop. Instead, it should use a local runtime interface plus backend adapters.
+
+Current runtime:
+
+- `Ollama` via the local `/api/generate` HTTP endpoint
+
+Planned local additions:
+
+- `vLLM` for higher-throughput self-hosted serving on larger GPU nodes
+- `llama.cpp` for GGUF-heavy and edge-oriented deployments
+
+## Planned Chess Index License Policy
+
+LexiChess should maintain a rolling `Chess Index`: a public ladder of self-hosted models measured through chess. The default public index should only admit models whose official weights can be downloaded, self-hosted, and used in a paid public product without research-only or similar restrictions.
+
+Default admission rules for the public `Chess Index`:
+
+- the model must come from an official publisher release or an official publisher-controlled model page
+- the license must be clearly documented on the official model card or release page
+- the default index should prefer permissive licenses we can host comfortably in production, currently `Apache-2.0` and `MIT`
+- the default index should exclude research-only, non-commercial, field-of-use-restricted, gated-clickthrough, or community-license-restricted families unless legal review says otherwise
+- the model must be runnable through our local stack such as `Ollama`, `vLLM`, `llama.cpp`, or direct `Transformers`
+- every indexed competitor must record a reproducible identity: model id, publisher, revision, quantization, runtime, prompt profile, and hardware class
+
+Important nuance:
+
+- many models marketed as `open source` are more accurately `open-weight`
+- LexiChess should treat licensing as an explicit intake gate, not a vague assumption
+- this policy is an engineering filter for the public ladder, not legal advice
+
+## Planned Chess Index Roster
+
+The goal is to keep an active public ladder of roughly `20-30` permissively licensed entrants, then add new models as they are released. `Gemma 4` remains reserved for the referee role by default, while an optional `Gemma` player preset can still appear in showmatches outside the default public ladder.
+
+Initial license-safe candidate pool for the public `Chess Index`:
+
+- `Qwen/Qwen3-0.6B`
+- `Qwen/Qwen3-1.7B`
+- `Qwen/Qwen3-4B`
+- `Qwen/Qwen3-8B`
+- `Qwen/Qwen3-14B`
+- `Qwen/Qwen3-30B-A3B`
+- `Qwen/Qwen3-32B`
+- `Qwen/QwQ-32B`
+- `deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B`
+- `deepseek-ai/DeepSeek-R1-Distill-Qwen-7B`
+- `deepseek-ai/DeepSeek-R1-Distill-Qwen-14B`
+- `deepseek-ai/DeepSeek-R1-Distill-Qwen-32B`
+- `deepseek-ai/DeepSeek-R1-0528-Qwen3-8B`
+- `microsoft/Phi-4-mini-instruct`
+- `microsoft/Phi-4-mini-reasoning`
+- `microsoft/phi-4`
+- `microsoft/Phi-4-reasoning`
+- `microsoft/Phi-4-reasoning-plus`
+- `allenai/OLMo-1B-hf`
+- `allenai/OLMo-2-1124-7B-Instruct`
+- `allenai/OLMo-2-1124-13B-Instruct`
+- `allenai/OLMo-2-0325-32B-Instruct`
+- `ibm-granite/granite-3.3-2b-instruct`
+- `ibm-granite/granite-3.3-8b-instruct`
+- `ibm-granite/granite-3.2-8b-instruct`
+
+Intentional default exclusions for now:
+
+- models whose primary official license is research-only or non-commercial
+- models whose hosting rights are ambiguous for a paid public web app
+- models that require a separate community or click-through license we do not want as the baseline for the public ladder
+
+Practical note:
+
+- a single RTX 4090 is a great place to start, but some indexed entrants will only be comfortable with quantization, tensor parallelism, or larger GPU nodes
+- the roster should be trimmed and expanded by chess-specific benchmarking, licensing clarity, and operational cost rather than hype alone
+
+## Planned Chess Index Intake Workflow
+
+LexiChess should not treat the roster as static. The point of the `Chess Index` is to absorb new public model releases over time.
+
+When a new model family or revision appears, the planned intake flow is:
+
+1. Watch the official publisher release channel or official model page.
+2. Verify that the official license is compatible with self-hosting in the public paid product.
+3. Record the canonical model id, release date, license, publisher link, and local runtime path.
+4. Download the official weights or an approved reproducible quantization.
+5. Run smoke tests for prompt formatting, move extraction, legality handling, and basic throughput.
+6. Place the new entrant against anchor engines and a slice of already-rated index models.
+7. Publish a provisional `Chess Index` rating before promoting it to the main ladder.
+8. Preserve the exact model revision, quantization, runtime, and hardware metadata so future comparisons stay reproducible.
+
+## Planned Signature Experience
+
+The big swing for LexiChess is an authenticated website app where users can sign in, start games, jump into live matches, and watch model-vs-model games as a live broadcast instead of a silent benchmark run. This layer is still planned, not implemented in the current MVP.
+
+Planned broadcast features:
+
+- a live observer page with the board, move list, engine panel, player banter rail, and referee feed
+- a live website interface where a human can play from move one, jump into an LLM-vs-LLM game midstream, or hand control back to an LLM at any time
+- in-browser chat so users can talk to the active player models and the referee during a game
+- a character-driven play surface where users can choose which AI personality they want to face, team up with, or watch
+- an optional local `Gemma` player preset that can enter showmatches like any other competitor
+- a local `Gemma 4` referee persona that acts as mediator, coach, rational voice, and adult in the room
+- live player-to-player trash talk throughout showmatches, with both players in full unhinged roast mode
+- spoken referee calls in the browser so spectators can listen as the game unfolds
+- Stockfish-backed MultiPV analysis with configurable 2-5 move lookahead for "what happens next" predictions
+- deterministic wrong-move detection by the chess engine, followed by live referee rulings and forced correction loops
+- online recording of the board, player banter, referee rulings, and replay assets
+- a dramatic end-of-game call for checkmate and decisive finishes, including `GOOOOOAAAAAAALL and CHECKMATE!`-style finishers
+
+## Planned Human-In-The-Loop Play
+
+The website should support more than passive spectating. A core part of the product is letting people enter and leave games fluidly.
+
+Planned play modes:
+
+- `human vs LLM` from the beginning of the game
+- `human vs human` with referee support and optional LLM takeover
+- `LLM vs LLM` with a human stepping into either side at any point
+- `human plus LLM co-pilot`, where the user chats with the model before deciding whether to move themselves or delegate the turn
+
+Planned control handoff rules:
+
+- a human can claim white or black midgame through the website UI
+- a human can release control of a side and assign it to a chosen LLM without restarting the game
+- each seat should keep a control timeline so replays show exactly when a human or model was in charge
+- the website chat should show whether the user is talking to the current player, the opposing player, or `Gemma 4`
+- benchmark-rated games should remain clearly separated from interactive handoff games
+
+## Planned Avatar And Personality Experience
+
+LexiChess should not feel like a generic chat wrapper around chess. A core part of the product is letting users play with distinct AI chess characters that have recognizable voices, avatars, and attitudes.
+
+Planned character features:
+
+- selectable personalities such as serious coach, calm master, wholesome encourager, snarky rival, blitz goblin, and sports-announcer energy
+- a consistent separation between `gameplay model` and `persona layer`, so the same chess core can power multiple characters
+- voice presets that make the characters feel different in live play, replays, and showmatches
+- avatar surfaces ranging from simple portraits and reactions to richer animated experiences later
+- memory and preference hooks so a character can adapt to a user’s skill level, recurring style, or favorite mode over time
+- referee, player, coach, and announcer roles that each feel intentionally different instead of being one generic assistant with a different prompt
+
+Important product rule:
+
+- benchmark mode should optimize for reproducibility and clean data
+- character mode should optimize for delight, retention, humor, teaching style, and memorable play sessions
+
+## Planned Online Product Model
+
+LexiChess is not just aiming to be a local research harness. The plan is for it to become a paid online product that runs our own inference stack and gives users an account-based experience.
+
+Planned product foundations:
+
+- account creation, login, logout, password reset, and session management
+- paid subscription plans with entitlements tied to compute, concurrency, storage, and premium gameplay features
+- private user-owned games, saved replays, transcript history, and highlight clips
+- authenticated game rooms where a user can start a match, invite spectators, or let an LLM take over a seat
+- product-level separation between public benchmark broadcasts, private user games, and premium showmatch experiences
+- account-aware chat so a signed-in user can talk to the current player, the opposing player, or `Gemma 4`
+- premium character packs, voice presets, and avatar experiences that can become part of the paid product surface
+- usage metering and plan enforcement around expensive workloads like long recordings, premium voices, richer character experiences, and higher-end local model pools
+- a self-hosted deployment model where the app, model runtimes, analysis stack, and billing-aware access controls are all operated by us on `GCP`
+
+Important boundary:
+
+- `paid online app` does not mean relying on third-party model APIs. The goal is still to serve all gameplay, referee, and analysis workloads from infrastructure we control, with `GCP` as the primary cloud platform.
+
+## Planned Broadcast Match Loop
+
+1. In `benchmark mode`, two move-playing models submit candidate moves through a clean, move-only path with no banter.
+2. In `showmatch mode`, both players stay in unhinged roast mode for the entire game, including an optional `Gemma` player preset.
+3. In `interactive mode`, a human can take over either side, hand that side back to an LLM, or start the game directly from the UI.
+4. Legal-move validation and rule enforcement happen deterministically in the chess engine before any move is accepted.
+5. If a player submits a wrong move, the engine emits a rule-break notification and the move is rejected.
+6. `Gemma 4` receives that deterministic notification, explains what went wrong, mediates the chaos, and coaches the player toward a legal correction.
+7. Stockfish analyzes the current position and produces short-horizon candidate lines for the next 2-5 moves.
+8. The web app streams board updates, player banter, referee rulings, coaching suggestions, control handoffs, and synthesized referee audio in real time.
+9. Every move, correction, ruling, trash-talk line, interview line, chat exchange, control handoff, and audio artifact is logged for replay and research.
+
+The important split is that `benchmark mode` stays clean for ratings and evaluation, while `showmatch mode` and `interactive mode` are allowed to be loud, unhinged, funny, and entertaining. The chess engine remains the deterministic source of truth for legality in every mode.
+
+Another important split is that `chess skill` and `character presentation` should stay separable. The gameplay layer chooses or validates moves, while the persona, voice, and avatar layers decide how the experience feels to the user.
+
+## Planned GCP-First Architecture
+
+The long-term deployment direction is a web-first self-hosted stack on `Google Cloud Platform`.
+
+Core architecture:
+
+- `Cloud Run` for the website frontend, API layer, auth-aware app services, and realtime web endpoints
+- `Cloud SQL for PostgreSQL` for accounts, subscriptions, match metadata, ratings, preferences, and operational data
+- `Cloud Storage` for replay bundles, audio artifacts, exports, screenshots, and highlight assets
+- `Artifact Registry` for container images
+- `Secret Manager` for application secrets and service credentials
+- GPU-backed self-hosted model workers on `Compute Engine Spot VMs` for low-cost tournament execution and steady inference
+- `Gemma 4` deployed as a dedicated referee service through Ollama, vLLM, or another local runtime on infrastructure we control
+- an optional `Gemma` player preset running through the same local runtime stack as any other competitor
+- a website control layer that can reassign a seat between human and model midgame without resetting the board
+- a persona orchestration layer that maps a gameplay core to character prompts, memory rules, and role behavior
+- a self-hosted speech synthesis layer used to turn referee calls and optional showmatch voices into browser-playable audio
+- an avatar presentation layer for portraits, reactions, and richer animated character surfaces over time
+- engine analysis service using Stockfish for evaluation, projected candidate lines, and short-horizon lookahead
+- real-time event streaming so spectators can watch moves, player banter, deterministic rule-break events, referee corrections, and control handoffs live
+
+Practical `GCP` split for v1:
+
+- `Cloud Run` for the public website and stateless app services
+- `Cloud SQL` as the production database after the MVP grows past local SQLite
+- `Cloud Storage` for long-lived replay and media assets
+- `Compute Engine Spot VMs` for the cheapest first wave of GPU-backed inference workers
+- optional `Cloud Run GPU` or larger GPU node pools later for bursty referee workloads or premium experiences
+- character profile and preference data that lets users choose personalities, voices, and coaching styles
+- interactive website sessions that can route turns and chat messages between humans, player models, and the referee
+- account and entitlement checks that gate who can create games, join premium rooms, or access saved replay assets
+- per-user and per-plan data models for match history, saved clips, settings, and usage accounting
+
+Why `GCP` first:
+
+- it gives LexiChess a cleaner path to ship a paid web product quickly without committing to a heavyweight cluster from day one
+- it supports a simple split between serverless web services and cheap GPU-backed workers
+- it keeps the product self-hosted while still giving us managed building blocks for the expensive boring parts
+
+Planned configuration surface:
+
+```env
+LEXICHESS_PROVIDER=ollama
+LEXICHESS_MODEL=qwen3:8b
+
+OLLAMA_HOST=http://localhost:11434
+OLLAMA_MODEL=qwen3:8b
 ```
+
+## Current Repository Layout
+
+The repository now contains the MVP source package plus tests.
+
+```text
 lexichess/
-├── Notebooks/        # Instructional Jupyter notebooks
-├── Sandbox/          # Development space for experiments
-├── src/              # Backend Python code (chess, LLM, tutoring, API)
-├── frontend/         # React frontend for web UI
-├── docs/             # Documentation and diagrams
-├── tests/            # Unit and integration tests
-├── scripts/          # Utility scripts
-├── README.md         # Project overview
-├── CONTRIBUTING.md   # Contribution guidelines
-├── LICENSE           # MIT license
-└── pyproject.toml    # Python dependencies
+├── .env.example
+├── CONTRIBUTING.md
+├── README.md
+├── file_structure.md
+├── pyproject.toml
+├── src/
+│   └── lexichess/
+├── tests/
+└── TASKS.md
 ```
-
-For a detailed file structure, including a visual diagram, see [docs/file_structure.md](./docs/file_structure.md).
-
-## Project Goals
-- **Research**: Study LLM reasoning, hallucinations, and teaching effectiveness in chess.
-- **Education**: Provide AI-driven chess tutoring for beginners to advanced players.
-- **Entertainment**: Offer engaging human-AI chess matches and LLM tournaments.
-- **Developer Ecosystem**: Enable third-party integrations via a robust API.
-- **Productization**: Develop a freemium web/mobile app with premium features like advanced tutoring, analytics, and API access.
 
 ## Getting Started
-(TODO: Add detailed installation instructions, including `pip install`, environment setup, and API key configuration once core components are implemented.)
+
+### Local setup
+
+1. Install Python 3.10 or newer.
+2. Create a virtual environment: `python -m venv .venv`
+3. Install dependencies:
+
+```bash
+.venv/bin/python -m pip install python-chess httpx python-dotenv pytest ruff black
+```
+
+4. Install and start `Ollama`.
+5. Pull at least two local models.
+6. Copy `.env.example` to `.env` and fill in the local model you want to use.
+7. Run the tests:
+
+```bash
+PYTHONPATH=src .venv/bin/pytest
+```
+
+### Run a game
+
+```bash
+ollama pull qwen3:8b
+ollama pull deepseek-r1:14b
+
+PYTHONPATH=src .venv/bin/python -m lexichess.cli play \
+  --white-provider ollama \
+  --white-model qwen3:8b \
+  --black-provider ollama \
+  --black-model deepseek-r1:14b
+```
+
+The CLI writes game data to the SQLite path configured by `LEXICHESS_DB_PATH`.
+
+## Current Architecture
+
+- `config.py`: loads environment-driven settings for self-hosted runtimes
+- `llm/`: runtime interface plus the current `Ollama` adapter
+- `chess/`: move extraction, SAN/UCI normalization, and legal move validation
+- `storage/`: SQLite schema and logging repository
+- `tournament/`: game runner that drives the match loop and records hallucinations
+- `cli.py`: entrypoint for running games
+
+## Next Steps
+
+- add richer prompt templates and optional PGN exports
+- support tournament pairings instead of single-game runs
+- formalize the `Chess Index` model-admission policy in code and metadata
+- add automated license and source tracking for indexed model releases
+- add a repeatable model-intake workflow for newly released permissive models
+- add a live website UI with player banter, referee, audio streams, and seat handoff controls
+- add auth, account, and session foundations for the online app
+- define subscription plans, entitlements, and usage-metering rules for compute-heavy features
+- add user-owned game history, replay library, and saved clip surfaces
+- add a first character system with selectable personalities, voices, and lightweight avatar presentation
+- prototype an optional local `Gemma` showmatch player preset plus the local `Gemma 4` referee
+- add human-join, human-takeover, and LLM-takeover flows to the web app design
+- add Stockfish-backed MultiPV analysis for 2-5 move lookahead
+- add a `vLLM` runtime for larger self-hosted tournament servers
+- stand up the initial `GCP` foundation with `Cloud Run`, `Cloud SQL`, `Cloud Storage`, `Artifact Registry`, and `Secret Manager`
+- deploy the website app and inference stack on `GCP`
+- add `Compute Engine Spot VM` workers for low-cost tournaments and model serving
+- compare 4090 runs against larger self-hosted multi-GPU tournament servers in a repeatable evaluation harness
+
+## Official References
+
+- `Gemma 4`: [Google announcement](https://blog.google/innovation-and-ai/technology/developers-tools/gemma-4/) and [Google release docs](https://ai.google.dev/gemma/docs/releases)
+- `Qwen3` and `QwQ-32B`: [Qwen3 official blog](https://qwenlm.github.io/blog/qwen3/) and [Qwen/QwQ-32B official model page](https://huggingface.co/Qwen/QwQ-32B)
+- `DeepSeek-R1` family: [deepseek-ai/DeepSeek-R1 official model page](https://huggingface.co/deepseek-ai/DeepSeek-R1), [deepseek-ai/DeepSeek-R1-Distill-Qwen-32B](https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B), and [deepseek-ai/DeepSeek-R1-0528](https://huggingface.co/deepseek-ai/DeepSeek-R1-0528)
+- `Phi` models: [Microsoft Phi page](https://azure.microsoft.com/products/phi), [microsoft/Phi-4-mini-instruct](https://huggingface.co/microsoft/Phi-4-mini-instruct), and [microsoft/Phi-4-reasoning](https://huggingface.co/microsoft/Phi-4-reasoning)
+- `OLMo 2`: [Ai2 OLMo 2 32B release](https://allenai.org/blog/olmo2-32b) and [allenai/OLMo-2-1124-7B-Instruct](https://huggingface.co/allenai/OLMo-2-1124-7B-Instruct)
+- `Granite`: [IBM Granite 3.0 release](https://community.ibm.com/community/user/watsonx/blogs/kate-soule/2024/10/29/granite-3-release), [ibm-granite/granite-3.3-8b-instruct](https://huggingface.co/ibm-granite/granite-3.3-8b-instruct), and [ibm-granite/granite-3.3-2b-instruct](https://huggingface.co/ibm-granite/granite-3.3-2b-instruct)
+- local serving references: [Ollama API docs](https://docs.ollama.com/api) and [vLLM docs](https://docs.vllm.ai/)
+- `GCP` deployment references: [Cloud Run GPU docs](https://cloud.google.com/run/docs/configuring/services/gpu), [Cloud SQL for PostgreSQL docs](https://cloud.google.com/sql/docs/postgres), [Compute Engine Spot VMs docs](https://cloud.google.com/compute/docs/instances/spot), and [Cloud Storage docs](https://cloud.google.com/storage/docs)
+
+## Future Directions
+
+These ideas are intentionally out of the MVP path for now:
+
+- Tutoring and annotated lessons
+- advanced fully animated avatar experiences
+- Research dashboards and analytics
+- Broader ecosystem integrations and partner surfaces
 
 ## Contributing
-Contributions are welcome! See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines on code style, issue reporting, and pull requests. We encourage contributions to tournament logic, tutoring content, UI enhancements, API endpoints, and Jupyter notebooks.
 
-## License
-MIT License. Commercial productization may involve dual-licensing for premium features or API access.
-
-## Roadmap
-1. **Phase 1 (3–6 months)**: Implement LLM tournament system with hallucination tracking, time controls, and SQLite logging.
-   - Deliverables: Tournament manager, Stockfish integration, research logs.
-2. **Phase 2 (6–12 months)**: Develop web UI for human vs. LLM/Stockfish play and initial text-based tutoring interface.
-   - Deliverables: Flask/React UI, `chessboard.js` board, difficulty settings, basic tutoring.
-3. **Phase 3 (3–5 months)**: Integrate open-source opening library for move commentary.
-   - Deliverables: Commentary engine, UI integration.
-4. **Phase 4 (6–12 months)**: Build conversational avatar with full tutoring system, including voice and visual components.
-   - Deliverables: Lesson curriculum, TTS/speech-to-text, 2D/3D avatar.
-5. **Phase 5 (3–6 months)**: Develop developer API for programmatic access to tournaments, game data, and tutoring interactions.
-   - Deliverables: RESTful endpoints, API documentation, authentication system.
-6. **Phase 6 (6 months)**: Add win probability simulations for research and strategy insights.
-   - Deliverables: Simulation engine, UI visualizations.
-7. **Phase 7 (12–18 months)**: Launch mobile app and finalize freemium product with monetization.
-   - Deliverables: React Native app, payment integration, premium features.
+Contributions are welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md) for the current contribution workflow and priorities.

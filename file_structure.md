@@ -1,143 +1,113 @@
-# LexiChess File Structure
+# LexiChess MVP Architecture
 
-This document describes the file structure of LexiChess, providing a detailed overview of directories and key files to help contributors navigate the codebase. The structure is modular, supporting features like LLM tournaments, tutoring, web UI, and API functionality.
+This document describes the current MVP structure of LexiChess and the architectural direction it is meant to support.
 
-## File Structure
-```
+The repository now contains a working backend slice for running and logging games, while still leaving larger product features like tournaments, UI, commentary, and tutoring for later phases.
+
+## Design Goals
+
+- Keep the chess runtime independent from any one model family
+- Support self-hosted local model runtimes from the start
+- Build the smallest useful MVP before expanding into spectator experiences and broader product features
+- Log enough detail to study move quality, parsing failures, hallucinations, and corrections
+
+## Current Layout
+
+```text
 lexichess/
-├── /Notebooks/              # Instructional Jupyter notebooks for tutorials and research
-│   ├── tournament.ipynb     # Guide to running LLM tournaments
-│   ├── tutoring.ipynb       # Interactive chess lessons and tutoring examples
-│   └── analysis.ipynb       # Analyze hallucination and tutoring data
-├── /Sandbox/                # Development space for experiments and prototypes
-│   ├── prototype_prompt.py  # Experimental LLM prompts
-│   ├── test_api.py          # API endpoint prototypes
-│   └── sandbox_README.md    # Guidelines for using the sandbox
-├── /src/                    # Core Python backend code
-│   ├── /chess/              # Chess logic and tournament management
-│   │   ├── __init__.py      # Package initialization
-│   │   ├── board.py         # Chess board and move validation using python-chess
-│   │   ├── tournament.py    # LLM tournament orchestration and pairing
-│   │   └── time_control.py  # Tournament time controls (e.g., 5+3)
-│   ├── /llm/                # LLM integration
-│   │   ├── __init__.py      # Package initialization
-│   │   ├── api_client.py    # API-based LLMs (e.g., Grok, OpenAI)
-│   │   ├── local_client.py  # Local LLMs (e.g., Ollama, LLaMA)
-│   │   └── prompt.py        # Prompt engineering for moves and tutoring
-│   ├── /tutoring/           # Tutoring logic
-│   │   ├── __init__.py      # Package initialization
-│   │   ├── curriculum.py    # Lesson plans and content (beginner to advanced)
-│   │   ├── feedback.py      # Personalized feedback for tutoring
-│   │   └── avatar.py        # Avatar interaction (text and voice)
-│   ├── /api/                # API endpoints
-│   │   ├── __init__.py      # Package initialization
-│   │   ├── endpoints.py     # RESTful endpoints using Flask-RESTful
-│   │   └── auth.py          # API authentication (OAuth2 or API keys)
-│   ├── /database/           # SQLite database management
-│   │   ├── __init__.py      # Package initialization
-│   │   ├── schema.py        # Database schema for games, moves, lessons
-│   │   └── queries.py       # Data access and logging functions
-│   └── main.py              # Flask app entry point
-├── /frontend/               # React frontend code
-│   ├── /public/             # Static assets (e.g., images, favicon)
-│   ├── /src/                # React components
-│   │   ├── /components/     # UI components (e.g., board, chat, avatar)
-│   │   ├── /pages/          # Pages (e.g., game, tutoring, dashboard)
-│   │   └── /utils/          # WebSocket and API helpers
-│   ├── package.json         # Node.js dependencies
-│   └── vite.config.js       # Vite build configuration
-├── /docs/                   # Documentation
-│   ├── file_structure.md    # This file, detailing file structure
-│   ├── /diagrams/           # Visual diagrams
-│   │   └── file_structure.mmd  # Mermaid diagram source
-│   ├── api.md               # API documentation (Phase 5)
-│   └── tutoring.md          # Tutoring curriculum guide
-├── /tests/                  # Unit and integration tests
-│   ├── /chess/              # Tests for chess logic
-│   ├── /llm/                # Tests for LLM integration
-│   ├── /tutoring/           # Tests for tutoring
-│   └── /api/                # Tests for API endpoints
-├── /scripts/                # Utility scripts
-│   ├── setup_db.py          # Initialize SQLite database
-│   └── run_tournament.py    # Run sample tournament
-├── README.md                # Project overview and basic file structure
-├── CONTRIBUTING.md          # Contribution guidelines
-├── LICENSE                  # MIT license
-├── pyproject.toml           # Python dependencies (Poetry)
-└── .gitignore               # Git ignore rules
+├── .env.example
+├── src/
+│   └── lexichess/
+│       ├── __init__.py
+│       ├── cli.py                  # CLI entrypoint for running games
+│       ├── config.py               # Environment-driven settings and runtime selection
+│       ├── chess/
+│       │   ├── __init__.py
+│       │   ├── board.py            # Board wrapper and legal move validation
+│       │   └── parsing.py          # SAN/UCI extraction and move parsing helpers
+│       ├── llm/
+│       │   ├── __init__.py
+│       │   ├── base.py             # Runtime interface used by the tournament loop
+│       │   ├── registry.py         # Runtime lookup and initialization
+│       │   ├── types.py            # Shared request and response models
+│       │   └── providers/
+│       │       ├── __init__.py
+│       │       └── ollama_provider.py
+│       ├── storage/
+│       │   ├── __init__.py
+│       │   ├── schema.py           # SQLite schema for games, turns, and hallucinations
+│       │   └── repository.py       # Read and write helpers
+│       └── tournament/
+│           ├── __init__.py
+│           ├── models.py           # Game and turn domain models
+│           └── runner.py           # Match loop orchestration
+├── tests/
+│   ├── chess/
+│   ├── llm/
+│   ├── storage/
+│   └── tournament/
+├── README.md
+├── CONTRIBUTING.md
+├── file_structure.md
+├── pyproject.toml
+└── TASKS.md
 ```
 
-## Visual Diagram
-The following Mermaid diagram visualizes the file structure, rendered on GitHub for clarity.
+## Layer Responsibilities
 
-```mermaid
-graph TD
-    A[lexichess/] --> K[Notebooks/]
-    A --> L[Sandbox/]
-    A --> B[src/]
-    A --> C[frontend/]
-    A --> D[docs/]
-    A --> E[tests/]
-    A --> F[scripts/]
-    A --> G[README.md]
-    A --> H[CONTRIBUTING.md]
-    A --> I[LICENSE]
-    A --> J[pyproject.toml]
+### `config.py`
 
-    K --> K1[tournament.ipynb]
-    K --> K2[tutoring.ipynb]
-    K --> K3[analysis.ipynb]
+Loads environment variables, validates settings, and chooses the active local runtime without hardcoding that decision in the chess loop.
 
-    L --> L1[prototype_prompt.py]
-    L --> L2[test_api.py]
-    L --> L3[sandbox_README.md]
+### `llm/`
 
-    B --> B1[chess/]
-    B --> B2[llm/]
-    B --> B3[tutoring/]
-    B --> B4[api/]
-    B --> B5[database/]
-    B --> B6[main.py]
+Defines the internal contract for local model runtimes. The rest of the application should request a move through this contract and should not care whether the backend is `Ollama`, `vLLM`, or something else running on hardware we control.
 
-    B1 --> B1a[board.py]
-    B1 --> B1b[tournament.py]
-    B1 --> B1c[time_control.py]
+### `llm/providers/ollama_provider.py`
 
-    B2 --> B2a[api_client.py]
-    B2 --> B2b[local_client.py]
-    B2 --> B2c[prompt.py]
+Wraps the local HTTP integration for models running through Ollama on the same machine or local network.
 
-    B3 --> B3a[curriculum.py]
-    B3 --> B3b[feedback.py]
-    B3 --> B3c[avatar.py]
+### `chess/`
 
-    B4 --> B4a[endpoints.py]
-    B4 --> B4b[auth.py]
+Contains move parsing, validation, and board state handling built around `python-chess`.
 
-    B5 --> B5a[schema.py]
-    B5 --> B5b[queries.py]
+### `tournament/`
 
-    C --> C1[public/]
-    C --> C2[src/]
-    C --> C3[package.json]
-    C --> C4[vite.config.js]
+Coordinates the game loop, asks the active runtimes for moves, and records the results of each turn.
 
-    C2 --> C2a[components/]
-    C2 --> C2b[pages/]
-    C2 --> C2c[utils/]
+### `cli.py`
 
-    D --> D1[file_structure.md]
-    D --> D2[diagrams/]
-    D --> D3[api.md]
-    D --> D4[tutoring.md]
+Provides the current runnable entrypoint for headless games between configured local backends.
 
-    D2 --> D2a[file_structure.mmd]
+### `storage/`
 
-    E --> E1[chess/]
-    E --> E2[llm/]
-    E --> E3[tutoring/]
-    E --> E4[api/]
+Stores enough structured data to replay games and inspect model behavior:
 
-    F --> F1[setup_db.py]
-    F --> F2[run_tournament.py]
-```
+- runtime name
+- model name
+- prompt sent to the model
+- raw model response
+- parsed move
+- legality result
+- latency and error metadata
+- hallucination classification
+
+## Runtime Notes
+
+The intended architecture is local-runtime-based:
+
+- `Ollama` is the initial local backend for running models on hardware such as an RTX 4090
+- `vLLM` can be added later without changing tournament logic if higher-throughput local serving becomes useful
+- `llama.cpp` can be added later for GGUF-heavy single-node and edge workflows
+
+This separation matters because local runtimes expose different protocols, batching behavior, and hardware tradeoffs. LexiChess should expose one internal runtime contract and let each adapter translate to the backend-specific wire format.
+
+## Near-Term Expansion
+
+The next structural additions will likely be:
+
+- richer tournament orchestration
+- replay and export utilities
+- self-hosted runtime expansion beyond Ollama
+- Stockfish-backed analysis services
+- a web-facing spectator layer
