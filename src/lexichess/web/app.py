@@ -229,6 +229,60 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
         except (LookupError, ValueError) as exc:
             raise _as_http_error(exc) from exc
 
+    @app.get("/api/games/{game_id}/referee")
+    def api_game_referee_events(
+        game_id: int,
+        after_id: int | None = Query(default=None, ge=0),
+        limit: int = Query(default=100, ge=1, le=500),
+    ) -> list[dict[str, Any]]:
+        try:
+            return interactive_service.list_events(
+                game_id,
+                after_id=after_id,
+                event_types=("referee_message",),
+                limit=limit,
+            )
+        except (LookupError, ValueError) as exc:
+            raise _as_http_error(exc) from exc
+
+    @app.get("/api/games/{game_id}/banter")
+    def api_game_banter_events(
+        game_id: int,
+        after_id: int | None = Query(default=None, ge=0),
+        limit: int = Query(default=100, ge=1, le=500),
+    ) -> list[dict[str, Any]]:
+        try:
+            return interactive_service.list_events(
+                game_id,
+                after_id=after_id,
+                event_types=("player_banter",),
+                limit=limit,
+            )
+        except (LookupError, ValueError) as exc:
+            raise _as_http_error(exc) from exc
+
+    @app.get("/api/games/{game_id}/transcript")
+    def api_game_transcript(
+        game_id: int,
+        after_id: int | None = Query(default=None, ge=0),
+        limit: int = Query(default=200, ge=1, le=500),
+    ) -> list[dict[str, Any]]:
+        try:
+            return interactive_service.list_events(
+                game_id,
+                after_id=after_id,
+                event_types=(
+                    "referee_message",
+                    "player_banter",
+                    "user_chat",
+                    "human_move_submitted",
+                    "human_move_rejected",
+                ),
+                limit=limit,
+            )
+        except (LookupError, ValueError) as exc:
+            raise _as_http_error(exc) from exc
+
     @app.get("/api/games/{game_id}/live")
     def api_game_live_status(game_id: int) -> dict[str, Any]:
         if repository.get_game(game_id) is None:
@@ -266,6 +320,65 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
                 game_id=game_id,
                 after_id=after_id,
                 limit=limit,
+                event_types=None,
+                once=once,
+                poll_seconds=poll_seconds,
+            ),
+            media_type="text/event-stream",
+        )
+
+    @app.get("/api/games/{game_id}/referee/stream")
+    def api_game_referee_stream(
+        game_id: int,
+        after_id: int | None = Query(default=None, ge=0),
+        limit: int = Query(default=100, ge=1, le=500),
+        once: bool = Query(default=False),
+        poll_seconds: float = Query(default=5.0, ge=0.0, le=30.0),
+    ) -> StreamingResponse:
+        try:
+            interactive_service.list_events(
+                game_id,
+                event_types=("referee_message",),
+                limit=1,
+            )
+        except (LookupError, ValueError) as exc:
+            raise _as_http_error(exc) from exc
+        return StreamingResponse(
+            _event_stream(
+                interactive_service,
+                game_id=game_id,
+                after_id=after_id,
+                limit=limit,
+                event_types=("referee_message",),
+                once=once,
+                poll_seconds=poll_seconds,
+            ),
+            media_type="text/event-stream",
+        )
+
+    @app.get("/api/games/{game_id}/banter/stream")
+    def api_game_banter_stream(
+        game_id: int,
+        after_id: int | None = Query(default=None, ge=0),
+        limit: int = Query(default=100, ge=1, le=500),
+        once: bool = Query(default=False),
+        poll_seconds: float = Query(default=5.0, ge=0.0, le=30.0),
+    ) -> StreamingResponse:
+        try:
+            interactive_service.list_events(
+                game_id,
+                event_types=("player_banter",),
+                limit=1,
+            )
+        except (LookupError, ValueError) as exc:
+            raise _as_http_error(exc) from exc
+        return StreamingResponse(
+            _event_stream(
+                interactive_service,
+                game_id=game_id,
+                after_id=after_id,
+                limit=limit,
+                event_types=("player_banter",),
                 once=once,
                 poll_seconds=poll_seconds,
             ),
@@ -388,6 +501,16 @@ def _game_bundle(
     bundle = build_game_bundle(game, turns, hallucinations, engine_analyses)
     bundle["seats"] = interactive_service.list_seats(game_id)
     bundle["events"] = interactive_service.list_events(game_id, limit=50)
+    bundle["referee_events"] = interactive_service.list_events(
+        game_id,
+        event_types=("referee_message",),
+        limit=20,
+    )
+    bundle["banter_events"] = interactive_service.list_events(
+        game_id,
+        event_types=("player_banter",),
+        limit=20,
+    )
     bundle["live"] = live_manager.status(game_id)
     return bundle
 
@@ -415,6 +538,7 @@ def _event_stream(
     game_id: int,
     after_id: int | None,
     limit: int,
+    event_types: tuple[str, ...] | None,
     once: bool,
     poll_seconds: float,
 ) -> Iterator[str]:
@@ -425,6 +549,7 @@ def _event_stream(
         events = interactive_service.list_events(
             game_id,
             after_id=last_seen_id,
+            event_types=event_types,
             limit=limit,
         )
         if events:

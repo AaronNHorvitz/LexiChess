@@ -57,10 +57,14 @@ def test_runtime_advances_model_turn_and_waits_for_human(tmp_path: Path) -> None
     )
     outputs = {("ollama", "qwen3:8b"): ["MOVE: e4"]}
 
-    def fake_builder(provider_name: str, settings: AppSettings, *, model: str | None = None) -> SharedScriptProvider:
+    def fake_builder(
+        provider_name: str, settings: AppSettings, *, model: str | None = None
+    ) -> SharedScriptProvider:
         del settings
         resolved_model = model or "unknown"
-        return SharedScriptProvider(provider_name, resolved_model, outputs[(provider_name, resolved_model)])
+        return SharedScriptProvider(
+            provider_name, resolved_model, outputs[(provider_name, resolved_model)]
+        )
 
     game_id = repository.create_game(
         white_provider="ollama",
@@ -106,7 +110,9 @@ def test_runtime_advances_model_turn_and_waits_for_human(tmp_path: Path) -> None
     assert second.status == "waiting_for_human"
     assert turns[0]["parsed_move_san"] == "e4"
     assert events[0]["event_type"] == "model_move_accepted"
-    assert events[1]["event_type"] == "waiting_for_human_turn"
+    assert events[1]["event_type"] == "player_banter"
+    assert events[2]["event_type"] == "waiting_for_human_turn"
+    assert "Qwen Hero" in events[1]["payload_json"]["message"]
 
 
 def test_runtime_accepts_human_move_and_advances_model_reply(tmp_path: Path) -> None:
@@ -118,10 +124,14 @@ def test_runtime_accepts_human_move_and_advances_model_reply(tmp_path: Path) -> 
     )
     outputs = {("ollama", "qwen3:14b"): ["MOVE: e5"]}
 
-    def fake_builder(provider_name: str, settings: AppSettings, *, model: str | None = None) -> SharedScriptProvider:
+    def fake_builder(
+        provider_name: str, settings: AppSettings, *, model: str | None = None
+    ) -> SharedScriptProvider:
         del settings
         resolved_model = model or "unknown"
-        return SharedScriptProvider(provider_name, resolved_model, outputs[(provider_name, resolved_model)])
+        return SharedScriptProvider(
+            provider_name, resolved_model, outputs[(provider_name, resolved_model)]
+        )
 
     game_id = repository.create_game(
         white_provider="ollama",
@@ -170,7 +180,82 @@ def test_runtime_accepts_human_move_and_advances_model_reply(tmp_path: Path) -> 
     assert waiting.status == "waiting_for_human"
     assert event["event_type"] == "human_move_submitted"
     assert reply.status == "move_applied"
-    assert [turn["parsed_move_san"] for turn in turns if turn["is_legal"]] == ["e4", "e5"]
+    assert [turn["parsed_move_san"] for turn in turns if turn["is_legal"]] == [
+        "e4",
+        "e5",
+    ]
+
+
+def test_runtime_emits_referee_message_for_invalid_move(tmp_path: Path) -> None:
+    repository = SQLiteRepository(tmp_path / "live_referee.db")
+    repository.initialize()
+    settings = AppSettings.from_env(
+        env={"LEXICHESS_DB_PATH": str(repository.database_path)},
+        dotenv_path=None,
+    )
+    outputs = {("ollama", "qwen3:8b"): ["banana", "still bad"]}
+
+    def fake_builder(
+        provider_name: str,
+        settings: AppSettings,
+        *,
+        model: str | None = None,
+    ) -> SharedScriptProvider:
+        del settings
+        resolved_model = model or "unknown"
+        return SharedScriptProvider(
+            provider_name,
+            resolved_model,
+            outputs[(provider_name, resolved_model)],
+        )
+
+    game_id = repository.create_game(
+        white_provider="ollama",
+        white_model="qwen3:8b",
+        black_provider="ollama",
+        black_model="qwen3:14b",
+        initial_fen=chess.STARTING_FEN,
+        mode="showmatch",
+        status="created",
+    )
+    repository.upsert_game_seat(
+        game_id=game_id,
+        color="white",
+        controller="model",
+        provider="ollama",
+        model="qwen3:8b",
+        display_name="Qwen Hero",
+        claimed_by=None,
+    )
+    repository.upsert_game_seat(
+        game_id=game_id,
+        color="black",
+        controller="model",
+        provider="ollama",
+        model="qwen3:14b",
+        display_name="Qwen Villain",
+        claimed_by=None,
+    )
+
+    runtime = InteractiveGameRuntime(
+        repository,
+        settings,
+        provider_builder=fake_builder,
+    )
+
+    result = runtime.advance_once(game_id)
+    events = repository.list_game_events(game_id)
+
+    assert result.status == "completed"
+    assert result.detail == "no_candidate_found_white"
+    assert any(event["event_type"] == "referee_message" for event in events)
+    assert any(event["event_type"] == "game_finished" for event in events)
+    referee_payloads = [
+        event["payload_json"]
+        for event in events
+        if event["event_type"] == "referee_message"
+    ]
+    assert any("Reset, breathe" in payload["message"] for payload in referee_payloads)
 
 
 def test_live_loop_manager_runs_until_human_turn_and_can_stop(tmp_path: Path) -> None:
@@ -182,10 +267,14 @@ def test_live_loop_manager_runs_until_human_turn_and_can_stop(tmp_path: Path) ->
     )
     outputs = {("ollama", "qwen3:8b"): ["MOVE: e4"]}
 
-    def fake_builder(provider_name: str, settings: AppSettings, *, model: str | None = None) -> SharedScriptProvider:
+    def fake_builder(
+        provider_name: str, settings: AppSettings, *, model: str | None = None
+    ) -> SharedScriptProvider:
         del settings
         resolved_model = model or "unknown"
-        return SharedScriptProvider(provider_name, resolved_model, outputs[(provider_name, resolved_model)])
+        return SharedScriptProvider(
+            provider_name, resolved_model, outputs[(provider_name, resolved_model)]
+        )
 
     game_id = repository.create_game(
         white_provider="ollama",

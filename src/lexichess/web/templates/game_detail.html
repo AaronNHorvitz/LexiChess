@@ -118,4 +118,38 @@
     </div>
   </section>
 </div>
+
+<div class="panel-grid">
+  <section class="panel">
+    <div class="panel-heading">
+      <h2>Referee Feed</h2>
+    </div>
+    <div class="list-stack">
+      {% for event in bundle.referee_events %}
+      <div class="list-card static-card">
+        <strong>{{ event["payload_json"]["speaker"] }}</strong>
+        <span>{{ event["payload_json"]["message"] }}</span>
+      </div>
+      {% else %}
+      <p class="empty-copy">No referee calls recorded yet.</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-heading">
+      <h2>Player Banter</h2>
+    </div>
+    <div class="list-stack">
+      {% for event in bundle.banter_events %}
+      <div class="list-card static-card">
+        <strong>{{ event["payload_json"]["speaker"] }}</strong>
+        <span>{{ event["payload_json"]["message"] }}</span>
+      </div>
+      {% else %}
+      <p class="empty-copy">No banter lines recorded yet.</p>
+      {% endfor %}
+    </div>
+  </section>
+</div>
 {% endblock %}

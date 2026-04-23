@@ -366,6 +366,13 @@ def test_web_app_exposes_api_and_spectator_pages(
     else:
         raise AssertionError("Live loop never reached a waiting-for-human state.")
 
+    bad_move = client.post(
+        f"/api/games/{live_game_id}/moves",
+        json={"color": "black", "move_text": "banana", "actor_name": "Bob"},
+    )
+    assert bad_move.status_code == 400
+    assert "legal SAN move" in bad_move.json()["detail"]
+
     move = client.post(
         f"/api/games/{live_game_id}/moves",
         json={"color": "black", "move_text": "MOVE: e5", "actor_name": "Bob"},
@@ -381,6 +388,31 @@ def test_web_app_exposes_api_and_spectator_pages(
         time.sleep(0.02)
     else:
         raise AssertionError("Live loop never produced the second model move.")
+
+    referee_feed = client.get(f"/api/games/{live_game_id}/referee")
+    assert referee_feed.status_code == 200
+    assert any(
+        event["payload_json"]["category"] == "ruling" for event in referee_feed.json()
+    )
+
+    banter_feed = client.get(f"/api/games/{live_game_id}/banter")
+    assert banter_feed.status_code == 200
+    assert any(event["event_type"] == "player_banter" for event in banter_feed.json())
+
+    transcript_feed = client.get(f"/api/games/{live_game_id}/transcript")
+    assert transcript_feed.status_code == 200
+    transcript_types = [event["event_type"] for event in transcript_feed.json()]
+    assert "player_banter" in transcript_types
+    assert "human_move_submitted" in transcript_types
+    assert "referee_message" in transcript_types
+
+    referee_stream = client.get(f"/api/games/{live_game_id}/referee/stream?once=true")
+    assert referee_stream.status_code == 200
+    assert "event: referee_message" in referee_stream.text
+
+    banter_stream = client.get(f"/api/games/{live_game_id}/banter/stream?once=true")
+    assert banter_stream.status_code == 200
+    assert "event: player_banter" in banter_stream.text
 
     live_stop = client.post(f"/api/games/{live_game_id}/live/stop")
     assert live_stop.status_code == 200

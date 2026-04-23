@@ -17,6 +17,13 @@ from lexichess.tournament.prompts import (
     build_invalid_move_retry_prompt,
 )
 from lexichess.tournament.replay import accepted_san_moves
+from lexichess.interactive.transcripts import (
+    build_finish_banter,
+    build_player_banter,
+    build_referee_finish,
+    build_referee_provider_error,
+    build_referee_ruling,
+)
 
 ProviderBuilder = Callable[..., MoveProvider]
 
@@ -98,6 +105,7 @@ class InteractiveGameRuntime:
         if seat["controller"] != SeatController.HUMAN.value:
             raise ValueError(f"{normalized_color} seat is not human-controlled.")
 
+        game = self._require_game(game_id)
         board = self._board_for_game(game_id)
         if board.turn_color != normalized_color:
             raise ValueError(f"It is not {normalized_color}'s turn.")
@@ -149,6 +157,16 @@ class InteractiveGameRuntime:
                     "detail": deterministic_explanation,
                 },
             )
+            self._emit_referee_message(
+                game_id=game_id,
+                color=normalized_color,
+                payload=build_referee_ruling(
+                    color=normalized_color,
+                    reason=interpretation.reason or "invalid_or_illegal_move",
+                    detail=deterministic_explanation,
+                    move_text=move_text,
+                ),
+            )
             raise ValueError(str(event["payload_json"]["detail"]))
 
         normalized_move = board.apply_san(interpretation.san)
@@ -189,6 +207,16 @@ class InteractiveGameRuntime:
         )
         if board.is_game_over():
             self._finish_from_board(game_id, board)
+        elif self._banter_enabled(game):
+            self._emit_player_banter(
+                game_id=game_id,
+                color=normalized_color,
+                payload=build_player_banter(
+                    color=normalized_color,
+                    speaker=str(display_name),
+                    move=normalized_move,
+                ),
+            )
         return event
 
     def _run_model_turn(
@@ -216,7 +244,9 @@ class InteractiveGameRuntime:
                 notification=last_notification,
                 referee_note=referee_note,
             )
-            prompt_kind, prompt_version = self._prompt_metadata(provider, prompt_template)
+            prompt_kind, prompt_version = self._prompt_metadata(
+                provider, prompt_template
+            )
             request = MoveRequest(
                 game_id=game_id,
                 move_number=board.ply,
@@ -244,6 +274,14 @@ class InteractiveGameRuntime:
                     prompt_version=prompt_version,
                     error=str(exc),
                 )
+                self._emit_referee_message(
+                    game_id=game_id,
+                    color=color,
+                    payload=build_referee_provider_error(
+                        color=color,
+                        detail=str(exc),
+                    ),
+                )
                 return self._finish_invalid_game(
                     game_id=game_id,
                     board=board,
@@ -268,7 +306,9 @@ class InteractiveGameRuntime:
                     instructions=prompt_template.instructions,
                     raw_response_text=response.output_text,
                     raw_response_json=(
-                        response.raw_response if self.settings.log_raw_response_json else None
+                        response.raw_response
+                        if self.settings.log_raw_response_json
+                        else None
                     ),
                     candidate_move=interpretation.candidate,
                     parsed_move_san=normalized_move,
@@ -295,6 +335,19 @@ class InteractiveGameRuntime:
                         "fen_after": board.fen,
                     },
                 )
+                if self._banter_enabled(self._require_game(game_id)):
+                    self._emit_player_banter(
+                        game_id=game_id,
+                        color=color,
+                        payload=build_player_banter(
+                            color=color,
+                            speaker=str(
+                                seat.get("display_name")
+                                or f"{provider.provider_name}:{provider.model}"
+                            ),
+                            move=normalized_move,
+                        ),
+                    )
                 if board.is_game_over():
                     return self._finish_from_board(game_id, board)
                 return LiveAdvanceResult(
@@ -338,7 +391,9 @@ class InteractiveGameRuntime:
                 instructions=prompt_template.instructions,
                 raw_response_text=response.output_text,
                 raw_response_json=(
-                    response.raw_response if self.settings.log_raw_response_json else None
+                    response.raw_response
+                    if self.settings.log_raw_response_json
+                    else None
                 ),
                 candidate_move=interpretation.candidate,
                 parsed_move_san=None,
@@ -375,6 +430,16 @@ class InteractiveGameRuntime:
                     "detail": deterministic_explanation,
                     "raw_response_text": response.output_text,
                 },
+            )
+            self._emit_referee_message(
+                game_id=game_id,
+                color=color,
+                payload=build_referee_ruling(
+                    color=color,
+                    reason=interpretation.reason or "invalid_or_illegal_move",
+                    detail=deterministic_explanation,
+                    move_text=response.output_text,
+                ),
             )
             if attempt > self.max_correction_attempts:
                 return self._finish_invalid_game(
@@ -473,6 +538,21 @@ class InteractiveGameRuntime:
                 "moves": board.move_history_san(),
             },
         )
+        self._emit_referee_message(
+            game_id=game_id,
+            color=color,
+            payload=build_referee_finish(
+                result=result,
+                termination_reason=termination_reason,
+            ),
+        )
+        finish_banter = self._finish_banter_payload(game_id=game_id, result=result)
+        if finish_banter is not None:
+            self._emit_player_banter(
+                game_id=game_id,
+                color=color,
+                payload=finish_banter,
+            )
         return LiveAdvanceResult(
             game_id=game_id,
             status="completed",
@@ -498,6 +578,21 @@ class InteractiveGameRuntime:
                 "moves": board.move_history_san(),
             },
         )
+        self._emit_referee_message(
+            game_id=game_id,
+            color=None,
+            payload=build_referee_finish(
+                result=result,
+                termination_reason=termination_reason,
+            ),
+        )
+        finish_banter = self._finish_banter_payload(game_id=game_id, result=result)
+        if finish_banter is not None:
+            self._emit_player_banter(
+                game_id=game_id,
+                color=None,
+                payload=finish_banter,
+            )
         return LiveAdvanceResult(
             game_id=game_id,
             status="completed",
@@ -514,9 +609,7 @@ class InteractiveGameRuntime:
     ) -> None:
         latest_event = self.repository.latest_game_event(game_id)
         latest_payload = (
-            latest_event.get("payload_json")
-            if latest_event is not None
-            else None
+            latest_event.get("payload_json") if latest_event is not None else None
         )
         if (
             latest_event is not None
@@ -598,6 +691,65 @@ class InteractiveGameRuntime:
         if game is None:
             raise LookupError(f"Game {game_id} not found.")
         return game
+
+    def _emit_referee_message(
+        self,
+        *,
+        game_id: int,
+        color: str | None,
+        payload: dict[str, Any],
+    ) -> None:
+        if not self._referee_enabled(self._require_game(game_id)):
+            return
+        self.repository.log_game_event(
+            game_id=game_id,
+            event_type="referee_message",
+            color=color,
+            payload=payload,
+        )
+
+    def _emit_player_banter(
+        self,
+        *,
+        game_id: int,
+        color: str | None,
+        payload: dict[str, Any],
+    ) -> None:
+        if not self._banter_enabled(self._require_game(game_id)):
+            return
+        self.repository.log_game_event(
+            game_id=game_id,
+            event_type="player_banter",
+            color=color,
+            payload=payload,
+        )
+
+    def _referee_enabled(self, game: dict[str, Any]) -> bool:
+        return str(game.get("mode") or "benchmark") != "benchmark"
+
+    def _banter_enabled(self, game: dict[str, Any]) -> bool:
+        mode = str(game.get("mode") or "benchmark")
+        if mode == "benchmark":
+            return False
+        if mode == "showmatch":
+            return self.settings.showmatch_mode.allow_banter
+        return True
+
+    def _finish_banter_payload(
+        self,
+        *,
+        game_id: int,
+        result: str | None,
+    ) -> dict[str, Any] | None:
+        if result == "1-0":
+            winner = self._seat_map(game_id)["white"].get("display_name") or "White"
+        elif result == "0-1":
+            winner = self._seat_map(game_id)["black"].get("display_name") or "Black"
+        else:
+            winner = None
+        return build_finish_banter(
+            winner=str(winner) if winner is not None else None, result=result
+        )
 
 
 class LiveGameLoopManager:

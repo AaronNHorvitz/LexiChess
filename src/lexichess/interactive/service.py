@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 from lexichess.chess import ChessBoard
@@ -223,10 +224,16 @@ class InteractiveGameService:
         game_id: int,
         *,
         after_id: int | None = None,
+        event_types: Sequence[str] | None = None,
         limit: int = 100,
     ) -> list[dict[str, Any]]:
         self._require_game(game_id)
-        return self.repository.list_game_events(game_id, after_id=after_id, limit=limit)
+        return self.repository.list_game_events(
+            game_id,
+            after_id=after_id,
+            event_types=event_types,
+            limit=limit,
+        )
 
     def game_state(self, game_id: int, *, events_limit: int = 50) -> dict[str, Any]:
         game = self._require_game(game_id)

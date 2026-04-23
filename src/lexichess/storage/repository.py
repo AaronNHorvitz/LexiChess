@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Sequence as SequenceCollection
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -345,22 +346,29 @@ class SQLiteRepository:
         game_id: int,
         *,
         after_id: int | None = None,
+        event_types: SequenceCollection[str] | None = None,
         limit: int = 100,
     ) -> list[dict[str, Any]]:
-        where_clause = "WHERE game_id = ?"
-        params: tuple[Any, ...] = (game_id, limit)
+        where_parts = ["game_id = ?"]
+        params: list[Any] = [game_id]
         if after_id is not None:
-            where_clause += " AND id > ?"
-            params = (game_id, after_id, limit)
+            where_parts.append("id > ?")
+            params.append(after_id)
+        if event_types:
+            placeholders = ", ".join("?" for _ in event_types)
+            where_parts.append(f"event_type IN ({placeholders})")
+            params.extend(event_types)
+        params.append(limit)
+        where_clause = " AND ".join(where_parts)
         with self._connect() as connection:
             rows = connection.execute(
                 f"""
                 SELECT * FROM game_events
-                {where_clause}
+                WHERE {where_clause}
                 ORDER BY id ASC
                 LIMIT ?
                 """,
-                params,
+                tuple(params),
             ).fetchall()
         return [_game_event_row(row) for row in rows]
 
