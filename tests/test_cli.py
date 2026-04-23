@@ -334,3 +334,95 @@ def test_cli_can_run_anchor_benchmark(
     assert payload["matches"][0]["result"] == "1-0"
     assert len(repository.list_games()) == 1
     assert len(repository.list_latest_ratings()) == 2
+
+
+def test_cli_can_create_inspect_and_run_tournament(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+    monkeypatch: MonkeyPatch,
+) -> None:
+    scripts = {
+        ("ollama", "qwen3:8b"): [["e4"]],
+        ("stockfish", "stockfish_beginner"): [["banana", "still bad"]],
+    }
+
+    def fake_build_provider(
+        provider_name: str,
+        settings: object,
+        *,
+        model: str | None = None,
+    ) -> FakeBatchProvider:
+        del settings
+        resolved_model = model or "unknown"
+        outputs = scripts[(provider_name, resolved_model)].pop(0)
+        return FakeBatchProvider(provider_name, resolved_model, outputs)
+
+    monkeypatch.setattr(
+        "lexichess.tournament.service.build_provider", fake_build_provider
+    )
+
+    database_path = tmp_path / "persistent_tournaments.db"
+    assert (
+        main(
+            [
+                "create-tournament",
+                "--name",
+                "Opening Night",
+                "--format",
+                "round-robin",
+                "--player",
+                "ollama:qwen3:8b",
+                "--player",
+                "stockfish:stockfish_beginner",
+                "--single-round",
+                "--db-path",
+                str(database_path),
+                "--json",
+            ]
+        )
+        == 0
+    )
+    created = json.loads(capsys.readouterr().out)
+    tournament_id = created["tournament"]["id"]
+    assert len(created["pairings"]) == 1
+
+    assert main(["list-tournaments", "--db-path", str(database_path), "--json"]) == 0
+    listed = json.loads(capsys.readouterr().out)
+    assert listed[0]["name"] == "Opening Night"
+
+    assert (
+        main(
+            [
+                "run-tournament",
+                str(tournament_id),
+                "--db-path",
+                str(database_path),
+                "--skip-analysis",
+                "--json",
+            ]
+        )
+        == 0
+    )
+    summary = json.loads(capsys.readouterr().out)
+    repository = SQLiteRepository(database_path)
+
+    assert summary["status"] == "completed"
+    assert summary["completed_pairings"] == 1
+    assert summary["standings"][0]["points"] == 1.0
+    assert len(repository.list_latest_ratings()) == 2
+
+    assert (
+        main(
+            [
+                "inspect-tournament",
+                str(tournament_id),
+                "--db-path",
+                str(database_path),
+                "--json",
+            ]
+        )
+        == 0
+    )
+    inspected = json.loads(capsys.readouterr().out)
+    assert inspected["tournament"]["status"] == "completed"
+    assert inspected["pairings"][0]["result"] == "1-0"

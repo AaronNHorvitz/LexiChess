@@ -85,6 +85,53 @@ CREATE TABLE IF NOT EXISTS engine_analyses (
 );
 """
 
+TOURNAMENT_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS tournaments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    format TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'created',
+    config_json TEXT,
+    notes TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    started_at TEXT,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    completed_at TEXT
+);
+"""
+
+TOURNAMENT_PLAYER_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS tournament_players (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+    seed INTEGER,
+    provider TEXT NOT NULL,
+    model TEXT NOT NULL,
+    display_name TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+TOURNAMENT_PAIRING_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS tournament_pairings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+    match_number INTEGER NOT NULL,
+    round_number INTEGER NOT NULL,
+    white_player_id INTEGER NOT NULL REFERENCES tournament_players(id) ON DELETE CASCADE,
+    black_player_id INTEGER NOT NULL REFERENCES tournament_players(id) ON DELETE CASCADE,
+    tag TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    game_id INTEGER REFERENCES games(id) ON DELETE SET NULL,
+    result TEXT,
+    termination_reason TEXT,
+    error_message TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    started_at TEXT,
+    completed_at TEXT
+);
+"""
+
 TURNS_GAME_INDEX_SQL = """
 CREATE INDEX IF NOT EXISTS idx_turns_game_id ON turns(game_id);
 """
@@ -100,6 +147,25 @@ ON engine_analyses(game_id, ply ASC, multipv_rank ASC, id ASC);
 
 ENGINE_ANALYSES_TURN_INDEX_SQL = """
 CREATE INDEX IF NOT EXISTS idx_engine_analyses_turn_id ON engine_analyses(turn_id);
+"""
+
+TOURNAMENT_STATUS_INDEX_SQL = """
+CREATE INDEX IF NOT EXISTS idx_tournaments_status ON tournaments(status, id DESC);
+"""
+
+TOURNAMENT_PLAYERS_TOURNAMENT_INDEX_SQL = """
+CREATE INDEX IF NOT EXISTS idx_tournament_players_tournament_id
+ON tournament_players(tournament_id, seed ASC, id ASC);
+"""
+
+TOURNAMENT_PAIRINGS_TOURNAMENT_INDEX_SQL = """
+CREATE INDEX IF NOT EXISTS idx_tournament_pairings_tournament_id
+ON tournament_pairings(tournament_id, match_number ASC, id ASC);
+"""
+
+TOURNAMENT_PAIRINGS_STATUS_INDEX_SQL = """
+CREATE INDEX IF NOT EXISTS idx_tournament_pairings_status
+ON tournament_pairings(tournament_id, status, match_number ASC, id ASC);
 """
 
 RATINGS_TABLE_SQL = """
@@ -131,11 +197,18 @@ BASE_SCHEMA_STATEMENTS = (
     TURN_TABLE_SQL,
     HALLUCINATION_TABLE_SQL,
     ENGINE_ANALYSIS_TABLE_SQL,
+    TOURNAMENT_TABLE_SQL,
+    TOURNAMENT_PLAYER_TABLE_SQL,
+    TOURNAMENT_PAIRING_TABLE_SQL,
     RATINGS_TABLE_SQL,
     TURNS_GAME_INDEX_SQL,
     HALLUCINATIONS_GAME_INDEX_SQL,
     ENGINE_ANALYSES_GAME_INDEX_SQL,
     ENGINE_ANALYSES_TURN_INDEX_SQL,
+    TOURNAMENT_STATUS_INDEX_SQL,
+    TOURNAMENT_PLAYERS_TOURNAMENT_INDEX_SQL,
+    TOURNAMENT_PAIRINGS_TOURNAMENT_INDEX_SQL,
+    TOURNAMENT_PAIRINGS_STATUS_INDEX_SQL,
     RATINGS_SLUG_INDEX_SQL,
 )
 

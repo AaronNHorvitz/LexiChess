@@ -170,3 +170,63 @@ def test_repository_persists_engine_analysis_rows(tmp_path: Path) -> None:
     assert rows[0]["best_move_san"] == "e5"
     assert rows[0]["pv_san"] == ["e5", "Nf3"]
     assert rows[1]["multipv_rank"] == 2
+
+
+def test_repository_persists_tournament_entities_and_standings(tmp_path: Path) -> None:
+    repository = SQLiteRepository(tmp_path / "tournaments.db")
+    repository.initialize()
+
+    tournament_id = repository.create_tournament(
+        name="Test Event",
+        tournament_format="round_robin",
+        config={"double_round_robin": False},
+    )
+    white_player_id = repository.add_tournament_player(
+        tournament_id,
+        provider="ollama",
+        model="qwen3:8b",
+        seed=1,
+    )
+    black_player_id = repository.add_tournament_player(
+        tournament_id,
+        provider="stockfish",
+        model="stockfish_beginner",
+        seed=2,
+    )
+    repository.create_tournament_pairings(
+        tournament_id,
+        [
+            {
+                "match_number": 1,
+                "round_number": 1,
+                "white_player_id": white_player_id,
+                "black_player_id": black_player_id,
+                "tag": "round_robin",
+            }
+        ],
+    )
+    pairing = repository.list_tournament_pairings(tournament_id)[0]
+    repository.start_tournament_pairing(int(pairing["id"]))
+    repository.finish_tournament_pairing(
+        int(pairing["id"]),
+        status="completed",
+        game_id=None,
+        result="1-0",
+        termination_reason="test_win",
+    )
+    repository.update_tournament_status(tournament_id, status="completed")
+
+    tournament = repository.get_tournament(tournament_id)
+    players = repository.list_tournament_players(tournament_id)
+    pairings = repository.list_tournament_pairings(tournament_id)
+    standings = repository.compute_tournament_standings(tournament_id)
+
+    assert tournament is not None
+    assert tournament["config_json"] == {"double_round_robin": False}
+    assert tournament["status"] == "completed"
+    assert len(players) == 2
+    assert pairings[0]["status"] == "completed"
+    assert pairings[0]["white_label"] == "ollama:qwen3:8b"
+    assert standings[0]["label"] == "ollama:qwen3:8b"
+    assert standings[0]["points"] == 1.0
+    assert standings[1]["losses"] == 1

@@ -422,7 +422,7 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [ ] 8.23 Add intake audit log
 - [ ] 8.24 Add model intake tests
 
-## [ ] Sprint 9: Data Schema, Migrations & Replay Persistence (15/35 done)
+## [ ] Sprint 9: Data Schema, Migrations & Replay Persistence (16/35 done)
 
 ### [ ] 9. Data Schema, Migrations & Replay Persistence
 
@@ -455,39 +455,39 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [ ] 9.16 Add `replay_manifests` table
 - [ ] 9.17 Add `audio_assets` table
 - [ ] 9.18 Add `clips_and_bookmarks` table
-- [ ] 9.19 Add repository abstractions for new tables
+- [x] 9.19 Add repository abstractions for new tables
 - [ ] 9.20 Add seed data scripts
 - [ ] 9.21 Add migration tests
 - [ ] 9.22 Add backup and restore scripts for local development
 - [ ] 9.23 Add data retention notes
 - [ ] 9.24 Add replay package structure definition
 
-## [ ] Sprint 10: Tournament Scheduling & Batch Orchestration (3/22 done)
+## [ ] Sprint 10: Tournament Scheduling & Batch Orchestration (15/22 done)
 
 ### [ ] 10. Tournament Scheduling & Batch Orchestration
 
-- [ ] 10.1 Add tournament entity
-- [ ] 10.2 Add roster entry entity
+- [x] 10.1 Add tournament entity
+- [x] 10.2 Add roster entry entity
 - [x] 10.3 Add pairing entity
-- [ ] 10.4 Add standings entity
+- [x] 10.4 Add standings entity
 - [ ] 10.5 Add round state entity
 - [x] 10.6 Add round-robin scheduler
 - [x] 10.7 Add engine-anchor scheduling mode
-- [ ] 10.8 Add named tournament presets
-- [ ] 10.9 Add batch single-game execution command
-- [ ] 10.10 Add resumable tournament runs
-- [ ] 10.11 Add paused tournament resume flow
-- [ ] 10.12 Add tournament seeding rules
-- [ ] 10.13 Add tournament tie-break rules
+- [x] 10.8 Add named tournament presets
+- [x] 10.9 Add batch single-game execution command
+- [x] 10.10 Add resumable tournament runs
+- [x] 10.11 Add paused tournament resume flow
+- [x] 10.12 Add tournament seeding rules
+- [x] 10.13 Add tournament tie-break rules
 - [ ] 10.14 Add compute-aware scheduling rules
 - [ ] 10.15 Add per-worker concurrency caps
-- [ ] 10.16 Add tournament CLI commands
+- [x] 10.16 Add tournament CLI commands
 - [ ] 10.17 Add tournament export format
 - [ ] 10.18 Add tournament API contracts
 - [ ] 10.19 Add private tournament support
 - [ ] 10.20 Add featured event scheduling support
-- [ ] 10.21 Add tournament integration tests
-- [ ] 10.22 Add tournament failure recovery rules
+- [x] 10.21 Add tournament integration tests
+- [x] 10.22 Add tournament failure recovery rules
 
 ## [ ] Sprint 11: GCP Foundation & Deployment Baseline (0/30 done)
 

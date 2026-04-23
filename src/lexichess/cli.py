@@ -22,7 +22,14 @@ from lexichess.tournament.replay import (
     export_game_json,
     render_move_list,
 )
-from lexichess.tournament import PlayerSpec, run_anchor_benchmark
+from lexichess.tournament import (
+    PlayerSpec,
+    create_anchor_tournament,
+    create_round_robin_tournament,
+    pause_tournament,
+    run_anchor_benchmark,
+    run_tournament,
+)
 from lexichess.tournament.runner import GameRunner
 
 
@@ -218,6 +225,95 @@ def build_parser() -> argparse.ArgumentParser:
     )
     anchor_benchmark_parser.add_argument("--json", action="store_true")
 
+    create_tournament_parser = subparsers.add_parser(
+        "create-tournament",
+        help="Create a persistent tournament with stored roster entries and pairings.",
+    )
+    create_tournament_parser.add_argument("--name", required=True)
+    create_tournament_parser.add_argument(
+        "--format",
+        choices=["round-robin", "anchor-benchmark"],
+        required=True,
+    )
+    create_tournament_parser.add_argument(
+        "--player",
+        dest="players",
+        action="append",
+        help="Player spec in the form provider:model. Repeat for round-robin tournaments.",
+    )
+    create_tournament_parser.add_argument(
+        "--single-round",
+        action="store_true",
+        help="Use a single round-robin instead of home-and-away pairings.",
+    )
+    create_tournament_parser.add_argument("--challenger-provider")
+    create_tournament_parser.add_argument("--challenger-model")
+    create_tournament_parser.add_argument(
+        "--anchor",
+        dest="anchors",
+        action="append",
+        help="Anchor name for anchor-benchmark tournaments. Repeat to select multiple anchors.",
+    )
+    create_tournament_parser.add_argument("--games-per-anchor", type=int, default=2)
+    create_tournament_parser.add_argument("--notes")
+    create_tournament_parser.add_argument("--db-path")
+    create_tournament_parser.add_argument("--json", action="store_true")
+
+    list_tournaments_parser = subparsers.add_parser(
+        "list-tournaments",
+        help="List persisted tournaments.",
+    )
+    list_tournaments_parser.add_argument("--db-path")
+    list_tournaments_parser.add_argument("--status")
+    list_tournaments_parser.add_argument("--limit", type=int, default=20)
+    list_tournaments_parser.add_argument("--json", action="store_true")
+
+    inspect_tournament_parser = subparsers.add_parser(
+        "inspect-tournament",
+        help="Inspect one persisted tournament, including pairings and standings.",
+    )
+    inspect_tournament_parser.add_argument("tournament_id", type=int)
+    inspect_tournament_parser.add_argument("--db-path")
+    inspect_tournament_parser.add_argument("--json", action="store_true")
+
+    run_tournament_parser = subparsers.add_parser(
+        "run-tournament",
+        help="Run or resume a persisted tournament.",
+    )
+    run_tournament_parser.add_argument("tournament_id", type=int)
+    run_tournament_parser.add_argument("--db-path")
+    run_tournament_parser.add_argument("--max-matches", type=int)
+    run_tournament_parser.add_argument("--max-plies", type=int)
+    run_tournament_parser.add_argument(
+        "--max-correction-attempts",
+        type=int,
+        default=1,
+    )
+    run_tournament_parser.add_argument(
+        "--include-failed",
+        action="store_true",
+        help="Retry failed pairings as well as pending pairings.",
+    )
+    run_tournament_parser.add_argument(
+        "--skip-analysis",
+        action="store_true",
+        help="Disable post-move Stockfish analysis persistence during tournament execution.",
+    )
+    run_tournament_parser.add_argument(
+        "--skip-rating",
+        action="store_true",
+        help="Skip automatic rating updates after completed tournament games.",
+    )
+    run_tournament_parser.add_argument("--json", action="store_true")
+
+    pause_tournament_parser = subparsers.add_parser(
+        "pause-tournament",
+        help="Pause a persisted tournament without modifying pairings.",
+    )
+    pause_tournament_parser.add_argument("tournament_id", type=int)
+    pause_tournament_parser.add_argument("--db-path")
+    pause_tournament_parser.add_argument("--json", action="store_true")
+
     elo_parser = subparsers.add_parser(
         "elo-preview", help="Preview an Elo update for two ratings."
     )
@@ -276,6 +372,21 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "run-anchor-benchmark":
         return _run_anchor_benchmark(args, settings)
+
+    if args.command == "create-tournament":
+        return _run_create_tournament(args, settings)
+
+    if args.command == "list-tournaments":
+        return _run_list_tournaments(args, settings)
+
+    if args.command == "inspect-tournament":
+        return _run_inspect_tournament(args, settings)
+
+    if args.command == "run-tournament":
+        return _run_run_tournament(args, settings)
+
+    if args.command == "pause-tournament":
+        return _run_pause_tournament(args, settings)
 
     if args.command == "elo-preview":
         return _run_elo_preview(args)
@@ -619,6 +730,148 @@ def _run_anchor_benchmark(args: argparse.Namespace, settings: AppSettings) -> in
     return 0
 
 
+def _run_create_tournament(args: argparse.Namespace, settings: AppSettings) -> int:
+    repository = _build_repository(args, settings)
+    if args.format == "round-robin":
+        players = _parse_player_specs(args.players or [])
+        tournament_id = create_round_robin_tournament(
+            repository,
+            name=args.name,
+            players=players,
+            double_round_robin=not args.single_round,
+            notes=args.notes,
+        )
+    else:
+        challenger_provider = (
+            args.challenger_provider or settings.default_provider.value
+        )
+        challenger_model = args.challenger_model or settings.model_for(
+            challenger_provider
+        )
+        tournament_id = create_anchor_tournament(
+            repository,
+            name=args.name,
+            challenger=PlayerSpec(
+                provider_name=challenger_provider,
+                model=challenger_model,
+            ),
+            anchor_names=args.anchors,
+            games_per_anchor=args.games_per_anchor,
+            notes=args.notes,
+        )
+
+    tournament = _require_tournament(repository, tournament_id)
+    payload = _tournament_bundle(repository, tournament)
+    if args.json:
+        print(json.dumps(payload, indent=2))
+        return 0
+
+    print(
+        f"Created tournament #{tournament_id} {tournament['name']} "
+        f"[{tournament['format']}] status={tournament['status']}"
+    )
+    return 0
+
+
+def _run_list_tournaments(args: argparse.Namespace, settings: AppSettings) -> int:
+    repository = _build_repository(args, settings)
+    tournaments = repository.list_tournaments(status=args.status, limit=args.limit)
+    if args.json:
+        print(json.dumps(tournaments, indent=2))
+        return 0
+
+    if not tournaments:
+        print("No tournaments recorded.")
+        return 0
+
+    for tournament in tournaments:
+        print(
+            f"#{tournament['id']} {tournament['name']} "
+            f"[{tournament['format']}] status={tournament['status']}"
+        )
+    return 0
+
+
+def _run_inspect_tournament(args: argparse.Namespace, settings: AppSettings) -> int:
+    repository = _build_repository(args, settings)
+    tournament = _require_tournament(repository, args.tournament_id)
+    payload = _tournament_bundle(repository, tournament)
+    print(json.dumps(payload, indent=2))
+    return 0
+
+
+def _run_run_tournament(args: argparse.Namespace, settings: AppSettings) -> int:
+    repository = _build_repository(args, settings)
+    summary = run_tournament(
+        repository,
+        tournament_id=args.tournament_id,
+        settings=settings,
+        max_matches=args.max_matches,
+        max_plies=args.max_plies,
+        max_correction_attempts=args.max_correction_attempts,
+        record_engine_analysis=not args.skip_analysis,
+        auto_rate=not args.skip_rating,
+        include_failed=args.include_failed,
+    )
+    payload = {
+        "tournament_id": summary.tournament_id,
+        "status": summary.status,
+        "completed_pairings": summary.completed_pairings,
+        "pending_pairings": summary.pending_pairings,
+        "failed_pairings": summary.failed_pairings,
+        "processed": [
+            {
+                "pairing_id": item.pairing_id,
+                "match_number": item.match_number,
+                "round_number": item.round_number,
+                "white": item.white_label,
+                "black": item.black_label,
+                "status": item.status,
+                "game_id": item.game.game_id if item.game is not None else None,
+                "result": item.game.result if item.game is not None else None,
+                "termination_reason": (
+                    item.game.termination_reason if item.game is not None else None
+                ),
+                "rating_update": (
+                    {
+                        "white_after": item.rating_update.white_after.rating,
+                        "black_after": item.rating_update.black_after.rating,
+                        "white_slug": item.rating_update.white_after.competitor.slug,
+                        "black_slug": item.rating_update.black_after.competitor.slug,
+                    }
+                    if item.rating_update is not None
+                    else None
+                ),
+                "error_message": item.error_message,
+            }
+            for item in summary.processed
+        ],
+        "standings": list(summary.standings),
+    }
+    if args.json:
+        print(json.dumps(payload, indent=2))
+        return 0
+
+    print(
+        f"Tournament #{summary.tournament_id} status={summary.status} "
+        f"completed={summary.completed_pairings} pending={summary.pending_pairings} "
+        f"failed={summary.failed_pairings}"
+    )
+    return 0
+
+
+def _run_pause_tournament(args: argparse.Namespace, settings: AppSettings) -> int:
+    repository = _build_repository(args, settings)
+    pause_tournament(repository, args.tournament_id)
+    tournament = _require_tournament(repository, args.tournament_id)
+    payload = {
+        "tournament_id": args.tournament_id,
+        "status": tournament["status"],
+    }
+    print(json.dumps(payload, indent=2))
+    return 0
+
+
 def _run_elo_preview(args: argparse.Namespace) -> int:
     player = RatingSnapshot(
         competitor=default_engine_anchors()[0].identity,
@@ -666,11 +919,56 @@ def _game_bundle_for(repository: SQLiteRepository, game_id: int) -> dict[str, An
     return build_game_bundle(game, turns, hallucinations, engine_analyses)
 
 
+def _tournament_bundle(
+    repository: SQLiteRepository,
+    tournament: dict[str, Any],
+) -> dict[str, Any]:
+    tournament_id = int(tournament["id"])
+    players = repository.list_tournament_players(tournament_id)
+    pairings = repository.list_tournament_pairings(tournament_id)
+    standings = repository.compute_tournament_standings(tournament_id)
+    return {
+        "tournament": tournament,
+        "players": players,
+        "pairings": pairings,
+        "standings": standings,
+    }
+
+
 def _require_game(repository: SQLiteRepository, game_id: int) -> dict[str, Any]:
     game = repository.get_game(game_id)
     if game is None:
         raise SystemExit(f"Game {game_id} was not found.")
     return game
+
+
+def _require_tournament(
+    repository: SQLiteRepository,
+    tournament_id: int,
+) -> dict[str, Any]:
+    tournament = repository.get_tournament(tournament_id)
+    if tournament is None:
+        raise SystemExit(f"Tournament {tournament_id} was not found.")
+    return tournament
+
+
+def _parse_player_specs(values: Sequence[str]) -> list[PlayerSpec]:
+    players: list[PlayerSpec] = []
+    for raw in values:
+        provider_name, separator, model = raw.partition(":")
+        if not separator or not provider_name.strip() or not model.strip():
+            raise SystemExit(
+                f"Invalid player spec {raw!r}. Expected the form provider:model."
+            )
+        players.append(
+            PlayerSpec(
+                provider_name=provider_name.strip(),
+                model=model.strip(),
+            )
+        )
+    if len(players) < 2:
+        raise SystemExit("At least two --player values are required.")
+    return players
 
 
 if __name__ == "__main__":

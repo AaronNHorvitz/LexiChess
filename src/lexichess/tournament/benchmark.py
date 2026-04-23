@@ -10,7 +10,10 @@ from lexichess.llm.registry import build_provider
 from lexichess.storage import SQLiteRepository
 from lexichess.tournament.models import GameResult, PlayerSpec
 from lexichess.tournament.runner import GameRunner
-from lexichess.tournament.schedule import ScheduledMatch, build_anchor_benchmark_schedule
+from lexichess.tournament.schedule import (
+    ScheduledMatch,
+    build_anchor_benchmark_schedule,
+)
 
 
 @dataclass(frozen=True, slots=True)

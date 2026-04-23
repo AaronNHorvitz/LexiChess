@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping, Sequence
 
 from lexichess.analysis import EngineAnalysis
 from lexichess.index.models import RatingSnapshot
@@ -328,6 +328,322 @@ class SQLiteRepository:
             ).fetchall()
         return [_engine_analysis_row(row) for row in rows]
 
+    def create_tournament(
+        self,
+        *,
+        name: str,
+        tournament_format: str,
+        status: str = "created",
+        config: dict[str, Any] | None = None,
+        notes: str | None = None,
+    ) -> int:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO tournaments (
+                    name,
+                    format,
+                    status,
+                    config_json,
+                    notes
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    name,
+                    tournament_format,
+                    status,
+                    _dump_json(config),
+                    notes,
+                ),
+            )
+            connection.commit()
+            return _lastrowid(cursor)
+
+    def get_tournament(self, tournament_id: int) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM tournaments WHERE id = ?",
+                (tournament_id,),
+            ).fetchone()
+        return _tournament_row(row) if row else None
+
+    def list_tournaments(
+        self,
+        *,
+        status: str | None = None,
+        limit: int = 20,
+    ) -> list[dict[str, Any]]:
+        where_clause = ""
+        params: tuple[Any, ...] = (limit,)
+        if status is not None:
+            where_clause = "WHERE status = ?"
+            params = (status, limit)
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT * FROM tournaments
+                {where_clause}
+                ORDER BY id DESC
+                LIMIT ?
+                """,
+                params,
+            ).fetchall()
+        return [_tournament_row(row) for row in rows]
+
+    def update_tournament_status(self, tournament_id: int, *, status: str) -> None:
+        started_at_sql = (
+            ", started_at = COALESCE(started_at, CURRENT_TIMESTAMP)"
+            if status == "running"
+            else ""
+        )
+        completed_at_sql = (
+            ", completed_at = CURRENT_TIMESTAMP" if status == "completed" else ""
+        )
+        with self._connect() as connection:
+            connection.execute(
+                f"""
+                UPDATE tournaments
+                SET status = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                    {started_at_sql}
+                    {completed_at_sql}
+                WHERE id = ?
+                """,
+                (status, tournament_id),
+            )
+            connection.commit()
+
+    def add_tournament_player(
+        self,
+        tournament_id: int,
+        *,
+        provider: str,
+        model: str,
+        display_name: str | None = None,
+        seed: int | None = None,
+    ) -> int:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO tournament_players (
+                    tournament_id,
+                    seed,
+                    provider,
+                    model,
+                    display_name
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                (tournament_id, seed, provider, model, display_name),
+            )
+            connection.commit()
+            return _lastrowid(cursor)
+
+    def list_tournament_players(self, tournament_id: int) -> list[dict[str, Any]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM tournament_players
+                WHERE tournament_id = ?
+                ORDER BY seed ASC, id ASC
+                """,
+                (tournament_id,),
+            ).fetchall()
+        return [_tournament_player_row(row) for row in rows]
+
+    def create_tournament_pairings(
+        self,
+        tournament_id: int,
+        pairings: Sequence[Mapping[str, Any]],
+    ) -> None:
+        if not pairings:
+            return
+        rows = [
+            (
+                tournament_id,
+                int(pairing["match_number"]),
+                int(pairing["round_number"]),
+                int(pairing["white_player_id"]),
+                int(pairing["black_player_id"]),
+                pairing.get("tag"),
+                pairing.get("status", "pending"),
+            )
+            for pairing in pairings
+        ]
+        with self._connect() as connection:
+            connection.executemany(
+                """
+                INSERT INTO tournament_pairings (
+                    tournament_id,
+                    match_number,
+                    round_number,
+                    white_player_id,
+                    black_player_id,
+                    tag,
+                    status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                rows,
+            )
+            connection.commit()
+
+    def get_tournament_pairing(self, pairing_id: int) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                _TOURNAMENT_PAIRINGS_SELECT + " WHERE tp.id = ?",
+                (pairing_id,),
+            ).fetchone()
+        return _tournament_pairing_row(row) if row else None
+
+    def list_tournament_pairings(
+        self,
+        tournament_id: int,
+        *,
+        statuses: Sequence[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        where_parts = ["tp.tournament_id = ?"]
+        params: list[Any] = [tournament_id]
+        if statuses:
+            placeholders = ", ".join("?" for _ in statuses)
+            where_parts.append(f"tp.status IN ({placeholders})")
+            params.extend(statuses)
+        where_clause = " AND ".join(where_parts)
+        with self._connect() as connection:
+            rows = connection.execute(
+                _TOURNAMENT_PAIRINGS_SELECT
+                + f" WHERE {where_clause} ORDER BY tp.match_number ASC, tp.id ASC",
+                tuple(params),
+            ).fetchall()
+        return [_tournament_pairing_row(row) for row in rows]
+
+    def start_tournament_pairing(self, pairing_id: int) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE tournament_pairings
+                SET status = 'running',
+                    error_message = NULL,
+                    started_at = COALESCE(started_at, CURRENT_TIMESTAMP)
+                WHERE id = ?
+                """,
+                (pairing_id,),
+            )
+            connection.commit()
+
+    def finish_tournament_pairing(
+        self,
+        pairing_id: int,
+        *,
+        status: str,
+        game_id: int | None,
+        result: str | None,
+        termination_reason: str | None,
+        error_message: str | None = None,
+    ) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE tournament_pairings
+                SET status = ?,
+                    game_id = ?,
+                    result = ?,
+                    termination_reason = ?,
+                    error_message = ?,
+                    completed_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (
+                    status,
+                    game_id,
+                    result,
+                    termination_reason,
+                    error_message,
+                    pairing_id,
+                ),
+            )
+            connection.commit()
+
+    def pause_tournament_pairing(
+        self,
+        pairing_id: int,
+        *,
+        error_message: str | None = None,
+    ) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE tournament_pairings
+                SET status = 'failed',
+                    error_message = ?
+                WHERE id = ?
+                """,
+                (error_message, pairing_id),
+            )
+            connection.commit()
+
+    def compute_tournament_standings(
+        self,
+        tournament_id: int,
+    ) -> list[dict[str, Any]]:
+        players = self.list_tournament_players(tournament_id)
+        pairings = self.list_tournament_pairings(tournament_id)
+        standings: dict[int, dict[str, Any]] = {}
+        for player in players:
+            player_id = int(player["id"])
+            standings[player_id] = {
+                "player_id": player_id,
+                "seed": player["seed"],
+                "provider": player["provider"],
+                "model": player["model"],
+                "display_name": player["display_name"],
+                "label": player["label"],
+                "games_played": 0,
+                "wins": 0,
+                "draws": 0,
+                "losses": 0,
+                "points": 0.0,
+            }
+
+        for pairing in pairings:
+            if pairing["status"] != "completed":
+                continue
+            result = pairing.get("result")
+            if result not in {"1-0", "0-1", "1/2-1/2"}:
+                continue
+
+            white_id = int(pairing["white_player_id"])
+            black_id = int(pairing["black_player_id"])
+            white_row = standings[white_id]
+            black_row = standings[black_id]
+            white_row["games_played"] += 1
+            black_row["games_played"] += 1
+
+            if result == "1-0":
+                white_row["wins"] += 1
+                white_row["points"] += 1.0
+                black_row["losses"] += 1
+            elif result == "0-1":
+                black_row["wins"] += 1
+                black_row["points"] += 1.0
+                white_row["losses"] += 1
+            else:
+                white_row["draws"] += 1
+                black_row["draws"] += 1
+                white_row["points"] += 0.5
+                black_row["points"] += 0.5
+
+        ordered = sorted(
+            standings.values(),
+            key=lambda row: (
+                -float(row["points"]),
+                -int(row["wins"]),
+                int(row["seed"]) if row["seed"] is not None else 10_000,
+                str(row["label"]),
+            ),
+        )
+        for index, row in enumerate(ordered, start=1):
+            row["rank"] = index
+        return ordered
+
     def record_rating_snapshot(
         self,
         snapshot: RatingSnapshot,
@@ -444,6 +760,24 @@ def _game_row(row: sqlite3.Row) -> dict[str, Any]:
     return dict(row)
 
 
+def _tournament_row(row: sqlite3.Row) -> dict[str, Any]:
+    payload = dict(row)
+    payload["config_json"] = _load_json(payload["config_json"])
+    return payload
+
+
+def _tournament_player_row(row: sqlite3.Row) -> dict[str, Any]:
+    payload = dict(row)
+    payload["label"] = payload["display_name"] or (
+        f"{payload['provider']}:{payload['model']}"
+    )
+    return payload
+
+
+def _tournament_pairing_row(row: sqlite3.Row) -> dict[str, Any]:
+    return dict(row)
+
+
 def _turn_row(row: sqlite3.Row) -> dict[str, Any]:
     payload = dict(row)
     payload["is_legal"] = bool(payload["is_legal"])
@@ -474,3 +808,22 @@ def _lastrowid(cursor: sqlite3.Cursor) -> int:
     if cursor.lastrowid is None:
         raise RuntimeError("SQLite insert did not return a row id.")
     return int(cursor.lastrowid)
+
+
+_TOURNAMENT_PAIRINGS_SELECT = """
+SELECT
+    tp.*,
+    wp.seed AS white_seed,
+    wp.provider AS white_provider,
+    wp.model AS white_model,
+    wp.display_name AS white_display_name,
+    COALESCE(wp.display_name, wp.provider || ':' || wp.model) AS white_label,
+    bp.seed AS black_seed,
+    bp.provider AS black_provider,
+    bp.model AS black_model,
+    bp.display_name AS black_display_name,
+    COALESCE(bp.display_name, bp.provider || ':' || bp.model) AS black_label
+FROM tournament_pairings tp
+JOIN tournament_players wp ON wp.id = tp.white_player_id
+JOIN tournament_players bp ON bp.id = tp.black_player_id
+"""

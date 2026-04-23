@@ -61,9 +61,11 @@ def build_anchor_benchmark_schedule(
     if games_per_anchor < 1:
         raise ValueError("games_per_anchor must be at least 1.")
 
-    resolved_anchor_names = list(anchor_names) if anchor_names else [
-        anchor.name for anchor in default_engine_anchors()
-    ]
+    resolved_anchor_names = (
+        list(anchor_names)
+        if anchor_names
+        else [anchor.name for anchor in default_engine_anchors()]
+    )
     anchor_players = [_anchor_player_spec(name) for name in resolved_anchor_names]
 
     schedule: list[ScheduledMatch] = []
