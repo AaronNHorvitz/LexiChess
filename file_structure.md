@@ -16,11 +16,18 @@ The repository now contains a working backend slice for running and logging game
 ```text
 lexichess/
 ├── .env.example
+├── CHANGELOG.md
+├── CODE_OF_CONDUCT.md
+├── docs/
+│   └── ...
+├── Makefile
+├── scripts/
+│   └── ...
 ├── src/
 │   └── lexichess/
 │       ├── __init__.py
 │       ├── cli.py                  # CLI entrypoint for running games
-│       ├── config.py               # Environment-driven settings and runtime selection
+│       ├── config.py               # Environment-driven settings, modes, and profiles
 │       ├── chess/
 │       │   ├── __init__.py
 │       │   ├── board.py            # Board wrapper and legal move validation
@@ -57,7 +64,7 @@ lexichess/
 
 ### `config.py`
 
-Loads environment variables, validates settings, and chooses the active local runtime without hardcoding that decision in the chess loop.
+Loads environment variables, validates settings, exports safe config snapshots, and chooses the active local runtime without hardcoding that decision in the chess loop.
 
 ### `llm/`
 
@@ -77,7 +84,7 @@ Coordinates the game loop, asks the active runtimes for moves, and records the r
 
 ### `cli.py`
 
-Provides the current runnable entrypoint for headless games between configured local backends.
+Provides the current runnable entrypoint for headless games between configured local backends plus settings inspection.
 
 ### `storage/`
 

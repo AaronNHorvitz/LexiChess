@@ -20,6 +20,8 @@ class MoveRequest:
     prompt: str
     instructions: str
     legal_moves: tuple[str, ...]
+    prompt_kind: str | None = None
+    prompt_version: str | None = None
     temperature: float | None = None
     max_output_tokens: int | None = None
 

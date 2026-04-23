@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import chess
 from pathlib import Path
 
 from lexichess.storage import SQLiteRepository
@@ -14,14 +15,17 @@ def test_repository_initializes_and_logs_game_data(tmp_path: Path) -> None:
         white_model="qwen3:8b",
         black_provider="ollama",
         black_model="deepseek-r1:14b",
-        initial_fen="startpos",
+        initial_fen=chess.STARTING_FEN,
     )
     turn_id = repository.log_turn(
         game_id=game_id,
         ply=1,
+        attempt=1,
         color="white",
         provider="ollama",
         model="qwen3:8b",
+        prompt_kind="benchmark_move",
+        prompt_version="benchmark_move.v2",
         prompt="Choose a legal move.",
         instructions="Return one SAN move.",
         raw_response_text="e4",
@@ -53,12 +57,15 @@ def test_repository_initializes_and_logs_game_data(tmp_path: Path) -> None:
     )
 
     game = repository.get_game(game_id)
+    games = repository.list_games()
     turns = repository.list_turns(game_id)
     hallucinations = repository.list_hallucinations(game_id)
 
     assert game is not None
     assert game["result"] == "1-0"
+    assert len(games) == 1
     assert len(turns) == 1
     assert turns[0]["parsed_move_san"] == "e4"
+    assert turns[0]["raw_response_json"] == {"response": "e4"}
     assert len(hallucinations) == 1
     assert hallucinations[0]["reason"] == "no_candidate_found"

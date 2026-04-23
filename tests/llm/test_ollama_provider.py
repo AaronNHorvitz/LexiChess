@@ -5,7 +5,7 @@ import json
 import httpx
 import pytest
 
-from lexichess.llm.base import ProviderError
+from lexichess.llm.base import ProviderError, ProviderErrorCode
 from lexichess.llm.providers import OllamaProvider
 from lexichess.llm.types import MoveRequest
 
@@ -56,6 +56,31 @@ def test_ollama_provider_hits_generate_endpoint() -> None:
     assert response.usage.total_tokens == 15
 
 
+def test_ollama_provider_health_check_lists_models() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/tags"
+        return httpx.Response(
+            200,
+            json={"models": [{"name": "llama3.2"}, {"name": "qwen3:8b"}]},
+        )
+
+    client = httpx.Client(
+        transport=httpx.MockTransport(handler),
+        base_url="http://localhost:11434/api",
+    )
+    provider = OllamaProvider(
+        host="http://localhost:11434",
+        model="qwen3:8b",
+        client=client,
+    )
+
+    report = provider.health_check()
+
+    assert report.is_healthy is True
+    assert report.model_available is True
+    assert "qwen3:8b" in report.metadata["available_models"]
+
+
 def test_ollama_provider_surfaces_error_payloads() -> None:
     def handler(_: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"error": "model unavailable"})
@@ -82,3 +107,25 @@ def test_ollama_provider_surfaces_error_payloads() -> None:
 
     with pytest.raises(ProviderError, match="model unavailable"):
         provider.request_move(request)
+
+
+def test_ollama_provider_categorizes_connection_failures() -> None:
+    def handler(_: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError(
+            "no route", request=httpx.Request("GET", "http://test")
+        )
+
+    client = httpx.Client(
+        transport=httpx.MockTransport(handler),
+        base_url="http://localhost:11434/api",
+    )
+    provider = OllamaProvider(
+        host="http://localhost:11434",
+        model="llama3.2",
+        client=client,
+    )
+
+    report = provider.health_check()
+
+    assert report.is_healthy is False
+    assert report.error_code is ProviderErrorCode.CONNECTION_ERROR

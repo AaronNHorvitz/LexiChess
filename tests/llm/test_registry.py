@@ -12,6 +12,7 @@ def test_registry_builds_ollama_provider_with_override() -> None:
 
     assert isinstance(provider, OllamaProvider)
     assert provider.model == "llama3.2"
+    assert provider.capabilities().supports_health_checks is True
 
 
 def test_registry_rejects_unknown_provider() -> None:

@@ -5,7 +5,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-from lexichess.storage.schema import SCHEMA_STATEMENTS
+from lexichess.storage.schema import ensure_schema
 
 
 class SQLiteRepository:
@@ -15,8 +15,7 @@ class SQLiteRepository:
     def initialize(self) -> None:
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as connection:
-            for statement in SCHEMA_STATEMENTS:
-                connection.execute(statement)
+            ensure_schema(connection)
             connection.commit()
 
     def create_game(
@@ -51,7 +50,7 @@ class SQLiteRepository:
                 ),
             )
             connection.commit()
-            return int(cursor.lastrowid)
+            return _lastrowid(cursor)
 
     def finish_game(
         self,
@@ -80,9 +79,12 @@ class SQLiteRepository:
         *,
         game_id: int,
         ply: int,
+        attempt: int = 1,
         color: str,
         provider: str,
         model: str,
+        prompt_kind: str = "benchmark_move",
+        prompt_version: str = "benchmark_move.v1",
         prompt: str,
         instructions: str,
         raw_response_text: str,
@@ -95,6 +97,8 @@ class SQLiteRepository:
         is_legal: bool,
         latency_ms: int | None,
         error: str | None,
+        deterministic_explanation: str | None = None,
+        referee_note: str | None = None,
     ) -> int:
         with self._connect() as connection:
             cursor = connection.execute(
@@ -102,9 +106,12 @@ class SQLiteRepository:
                 INSERT INTO turns (
                     game_id,
                     ply,
+                    attempt,
                     color,
                     provider,
                     model,
+                    prompt_kind,
+                    prompt_version,
                     prompt,
                     instructions,
                     raw_response_text,
@@ -116,15 +123,20 @@ class SQLiteRepository:
                     fen_after,
                     is_legal,
                     latency_ms,
-                    error
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    error,
+                    deterministic_explanation,
+                    referee_note
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     game_id,
                     ply,
+                    attempt,
                     color,
                     provider,
                     model,
+                    prompt_kind,
+                    prompt_version,
                     prompt,
                     instructions,
                     raw_response_text,
@@ -137,10 +149,12 @@ class SQLiteRepository:
                     1 if is_legal else 0,
                     latency_ms,
                     error,
+                    deterministic_explanation,
+                    referee_note,
                 ),
             )
             connection.commit()
-            return int(cursor.lastrowid)
+            return _lastrowid(cursor)
 
     def log_hallucination(
         self,
@@ -183,7 +197,7 @@ class SQLiteRepository:
                 ),
             )
             connection.commit()
-            return int(cursor.lastrowid)
+            return _lastrowid(cursor)
 
     def get_game(self, game_id: int) -> dict[str, Any] | None:
         with self._connect() as connection:
@@ -191,15 +205,33 @@ class SQLiteRepository:
                 "SELECT * FROM games WHERE id = ?",
                 (game_id,),
             ).fetchone()
-        return dict(row) if row else None
+        return _game_row(row) if row else None
 
-    def list_turns(self, game_id: int) -> list[dict[str, Any]]:
+    def list_games(self, *, limit: int = 20) -> list[dict[str, Any]]:
         with self._connect() as connection:
             rows = connection.execute(
-                "SELECT * FROM turns WHERE game_id = ? ORDER BY ply ASC",
-                (game_id,),
+                "SELECT * FROM games ORDER BY id DESC LIMIT ?",
+                (limit,),
             ).fetchall()
-        return [dict(row) for row in rows]
+        return [_game_row(row) for row in rows]
+
+    def list_turns(
+        self, game_id: int, *, legal_only: bool = False
+    ) -> list[dict[str, Any]]:
+        where_clause = "WHERE game_id = ?"
+        params: tuple[Any, ...] = (game_id,)
+        if legal_only:
+            where_clause += " AND is_legal = 1"
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT * FROM turns
+                {where_clause}
+                ORDER BY ply ASC, attempt ASC, id ASC
+                """,
+                params,
+            ).fetchall()
+        return [_turn_row(row) for row in rows]
 
     def list_hallucinations(self, game_id: int) -> list[dict[str, Any]]:
         with self._connect() as connection:
@@ -207,7 +239,7 @@ class SQLiteRepository:
                 "SELECT * FROM hallucinations WHERE game_id = ? ORDER BY id ASC",
                 (game_id,),
             ).fetchall()
-        return [dict(row) for row in rows]
+        return [_plain_row(row) for row in rows]
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.database_path)
@@ -220,3 +252,30 @@ def _dump_json(payload: dict[str, Any] | None) -> str | None:
     if payload is None:
         return None
     return json.dumps(payload, sort_keys=True)
+
+
+def _load_json(payload: str | None) -> dict[str, Any] | None:
+    if payload is None:
+        return None
+    return json.loads(payload)
+
+
+def _plain_row(row: sqlite3.Row) -> dict[str, Any]:
+    return dict(row)
+
+
+def _game_row(row: sqlite3.Row) -> dict[str, Any]:
+    return dict(row)
+
+
+def _turn_row(row: sqlite3.Row) -> dict[str, Any]:
+    payload = dict(row)
+    payload["is_legal"] = bool(payload["is_legal"])
+    payload["raw_response_json"] = _load_json(payload["raw_response_json"])
+    return payload
+
+
+def _lastrowid(cursor: sqlite3.Cursor) -> int:
+    if cursor.lastrowid is None:
+        raise RuntimeError("SQLite insert did not return a row id.")
+    return int(cursor.lastrowid)

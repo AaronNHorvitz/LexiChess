@@ -1,0 +1,12 @@
+[
+  {
+    "name": "promotion-check",
+    "fen": "8/P7/8/8/8/8/8/k6K w - - 0 1",
+    "san": "a8=Q+"
+  },
+  {
+    "name": "en-passant-capture",
+    "fen": "4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 1",
+    "san": "exd6"
+  }
+]

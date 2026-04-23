@@ -21,6 +21,8 @@ def build_provider(
             host=settings.ollama.host,
             model=model or settings.ollama.model,
             timeout_seconds=settings.ollama.timeout_seconds,
+            retry_attempts=settings.ollama.retry_attempts,
+            retry_base_delay_seconds=settings.ollama.retry_base_delay_seconds,
             api_key=settings.ollama.api_key,
         )
 

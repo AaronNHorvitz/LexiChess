@@ -283,10 +283,15 @@ The repository now contains the MVP source package plus tests.
 ```text
 lexichess/
 ├── .env.example
+├── CHANGELOG.md
 ├── CONTRIBUTING.md
+├── CODE_OF_CONDUCT.md
+├── docs/
+├── Makefile
 ├── README.md
 ├── file_structure.md
 ├── pyproject.toml
+├── scripts/
 ├── src/
 │   └── lexichess/
 ├── tests/
@@ -298,20 +303,33 @@ lexichess/
 ### Local setup
 
 1. Install Python 3.10 or newer.
-2. Create a virtual environment: `python -m venv .venv`
-3. Install dependencies:
+2. Bootstrap the local environment:
 
 ```bash
-.venv/bin/python -m pip install python-chess httpx python-dotenv pytest ruff black
+make bootstrap
 ```
 
-4. Install and start `Ollama`.
-5. Pull at least two local models.
-6. Copy `.env.example` to `.env` and fill in the local model you want to use.
-7. Run the tests:
+3. Copy `.env.example` to `.env` and fill in the local model you want to use.
+4. Validate the environment:
 
 ```bash
-PYTHONPATH=src .venv/bin/pytest
+make validate-env
+```
+
+5. Install and start `Ollama`.
+6. Pull at least two local models.
+7. Run the test suite:
+
+```bash
+make test
+```
+
+Useful local commands:
+
+```bash
+make lint
+make typecheck
+make smoke
 ```
 
 ### Run a game
@@ -337,6 +355,14 @@ The CLI writes game data to the SQLite path configured by `LEXICHESS_DB_PATH`.
 - `storage/`: SQLite schema and logging repository
 - `tournament/`: game runner that drives the match loop and records hallucinations
 - `cli.py`: entrypoint for running games
+
+## Development Docs
+
+- [Contributing](./CONTRIBUTING.md)
+- [Documentation Index](./docs/README.md)
+- [Repository Conventions](./docs/repository_conventions.md)
+- [Architecture Decision Records](./docs/adr/README.md)
+- [Glossary](./docs/glossary.md)
 
 ## Next Steps
 

@@ -10,7 +10,134 @@ Working rules for this file:
 - Treat the public `Chess Index` as licensing-gated from the start.
 - Treat the gameplay layer and the persona layer as intentionally separable.
 
-## [ ] Sprint 1: Product Alignment & Repository Foundation (11/22 done)
+## [ ] Immediate Build Queue
+
+This queue pulls the highest-leverage unchecked work out of the early sprints and puts it in one place so we can move from a planning-heavy repo to a product-ready implementation lane.
+
+### [ ] Queue A: Repository, policy, and developer workflow baseline
+
+- [x] `1.11` Finalize top-level repository naming conventions
+- [ ] `1.12` Add `LICENSE`
+- [x] `1.13` Add `CODE_OF_CONDUCT.md`
+- [x] `1.14` Add issue templates
+- [x] `1.15` Add pull request template
+- [x] `1.16` Add changelog policy
+- [x] `1.17` Add release versioning policy
+- [x] `1.18` Add architecture decision record directory
+- [x] `1.19` Add documentation index page
+- [x] `1.20` Add product glossary
+- [ ] `1.22` Remove stale generated artifacts from source control
+- [x] `2.4` Add editable install workflow
+- [x] `2.5` Add lockfile workflow
+- [x] `2.6` Add local bootstrap script
+- [x] `2.7` Add task runner commands for common workflows
+- [x] `2.8` Add `.env` validation script
+- [x] `2.9` Expand `.env.example` comments
+- [x] `2.10` Add `pre-commit` configuration
+- [x] `2.13` Add type-checking configuration
+- [x] `2.15` Add coverage configuration
+- [x] `2.16` Add local smoke test script
+
+### [ ] Queue B: Configuration and domain contracts needed for the real app
+
+- [x] `3.3` Add configuration profile support
+- [x] `3.4` Add benchmark-mode configuration
+- [x] `3.5` Add showmatch-mode configuration
+- [x] `3.6` Add interactive-mode configuration
+- [x] `3.7` Add character-mode configuration
+- [x] `3.8` Add feature flag support
+- [x] `3.9` Add secrets redaction in logs
+- [x] `3.10` Add structured logging configuration
+- [ ] `3.11.3` Add named reusable model preset registry
+- [ ] `3.11.4` Add preset resolution tests beyond direct model overrides
+- [ ] `3.12` Add personality preset configuration support
+- [ ] `3.13` Add voice preset configuration support
+- [ ] `3.14` Add avatar preset configuration support
+- [ ] `3.15` Add GCP deployment configuration surface
+- [x] `3.16` Add settings export command
+- [ ] `3.18` Add configuration migration notes
+- [x] `3.19` Add game-mode enum
+- [x] `3.20` Add seat-controller enum
+- [x] `3.21` Add persona-role enum
+- [x] `3.22` Add environment profile definitions for `dev`, `staging`, and `prod`
+
+### [ ] Queue C: Chess correctness and replay-safe match state
+
+- [x] `4.1.4` Add dedicated regression tests for non-starting positions
+- [ ] `4.2` Add PGN import support
+- [x] `4.3` Add PGN export support
+- [x] `4.7` Add promotion parsing coverage
+- [x] `4.8` Add en passant validation coverage
+- [ ] `4.9` Add repetition detection helpers
+- [ ] `4.10` Add fifty-move-rule helpers
+- [ ] `4.11` Add insufficient material detection
+- [ ] `4.13` Add resignation handling
+- [ ] `4.14` Add abort handling
+- [ ] `4.15` Add timeout adjudication
+- [ ] `4.17` Add repeated-failure forfeit policy
+- [ ] `4.21` Add clock state serialization helpers
+- [x] `4.22` Add legality explanation formatter
+- [x] `4.23` Add chess regression fixture corpus
+- [ ] `4.24` Add board-state tests for control handoff safety
+
+### [ ] Queue D: Prompt architecture, deterministic invalid-move handling, and CLI usability
+
+- [x] `5.1.2` Move prompt construction out of `runner.py` into a dedicated prompts module
+- [x] `5.1.3` Add prompt-builder-specific tests
+- [x] `5.2` Add prompt version identifiers
+- [x] `5.4` Add strict structured-output prompt template
+- [x] `5.5` Add invalid-move retry prompt template
+- [x] `5.6` Add deterministic invalid-move explanation prompt
+- [x] `5.7` Add referee coaching suggestion prompt
+- [ ] `5.15.4` Add richer multi-candidate ambiguity reporting
+- [ ] `5.16` Add parsing taxonomy enum
+- [ ] `5.17` Add candidate ranking heuristics
+- [ ] `5.18` Add prompt experiment toggles
+- [ ] `5.19` Add benchmark contamination checks for prompt flows
+- [x] `5.20` Add forced correction-and-resubmit loop
+- [x] `5.21` Add deterministic wrong-move notification path from chess engine
+- [x] `5.22` Add referee callback path after engine rejection
+- [ ] `5.24` Add verbose transcript output mode to CLI
+- [x] `5.25` Add `replay` CLI command
+- [x] `5.26` Add `inspect-game` CLI command
+- [x] `5.27` Add `list-games` CLI command
+- [x] `5.28` Add `export-game` CLI command
+- [x] `5.30` Add CLI integration tests
+
+### [ ] Queue E: Local runtime diagnostics and operations
+
+- [ ] `6.2` Add async provider interface
+- [x] `6.3` Add provider capability model
+- [x] `6.4.2` Add finer-grained provider error categories
+- [x] `6.5` Add provider health check contract
+- [x] `6.6` Add retry and backoff policy contract
+- [x] `6.7` Add timeout policy contract
+- [ ] `6.8` Add provider selection policy
+- [ ] `6.9` Add provider mock harness
+- [x] `6.10.2` Add dedicated host health probe method
+- [x] `6.10.3` Add health probe CLI or diagnostics command
+- [x] `6.11` Add Ollama model existence check
+- [ ] `6.12` Add Ollama model warmup command
+- [ ] `6.13` Add Ollama context-window configuration support
+- [ ] `6.14` Add Ollama thinking-output handling
+- [ ] `6.15` Add Ollama local-only hardening
+
+### [ ] Queue F: First benchmark and ratings foundation after the core runtime is hardened
+
+- [x] `7.1` Add Stockfish process wrapper
+- [x] `7.2` Add engine health checks
+- [x] `7.3` Add configurable analysis depth
+- [x] `7.4` Add MultiPV analysis support
+- [x] `7.5` Add principal-variation formatting
+- [x] `7.6` Add centipawn evaluation formatting
+- [x] `7.7` Add mate-score formatting
+- [x] `7.8` Add engine-anchor competitor model
+- [x] `7.9` Add competitor identity model for `model + quantization + runtime + prompt profile`
+- [x] `7.10` Add provisional rating flag
+- [x] `7.11` Add Elo update engine
+- [ ] `7.12` Add Glicko-style confidence tracking
+
+## [ ] Sprint 1: Product Alignment & Repository Foundation (20/22 done)
 
 ### [ ] 1. Product Alignment & Repository Foundation
 
@@ -24,39 +151,39 @@ Working rules for this file:
 - [x] 1.8 Document the launch scope for the public `Chess Index`
 - [x] 1.9 Document the launch scope for private paid games
 - [x] 1.10 Document the launch scope for personalities, voices, and avatars
-- [ ] 1.11 Finalize top-level repository naming conventions
+- [x] 1.11 Finalize top-level repository naming conventions
 - [ ] 1.12 Add `LICENSE`
-- [ ] 1.13 Add `CODE_OF_CONDUCT.md`
-- [ ] 1.14 Add issue templates
-- [ ] 1.15 Add pull request template
-- [ ] 1.16 Add changelog policy
-- [ ] 1.17 Add release versioning policy
-- [ ] 1.18 Add architecture decision record directory
-- [ ] 1.19 Add documentation index page
-- [ ] 1.20 Add product glossary
+- [x] 1.13 Add `CODE_OF_CONDUCT.md`
+- [x] 1.14 Add issue templates
+- [x] 1.15 Add pull request template
+- [x] 1.16 Add changelog policy
+- [x] 1.17 Add release versioning policy
+- [x] 1.18 Add architecture decision record directory
+- [x] 1.19 Add documentation index page
+- [x] 1.20 Add product glossary
 - [x] 1.21 Add contributor quickstart page
 - [ ] 1.22 Remove stale generated artifacts from source control
 
-## [ ] Sprint 2: Local Dev Environment, Tooling & CI (6/22 done)
+## [ ] Sprint 2: Local Dev Environment, Tooling & CI (16/22 done)
 
 ### [ ] 2. Local Dev Environment, Tooling & CI
 
 - [x] 2.1 Finalize Python version target
 - [x] 2.2 Pin runtime dependencies in `pyproject.toml`
 - [x] 2.3 Pin development dependencies in `pyproject.toml`
-- [ ] 2.4 Add editable install workflow
-- [ ] 2.5 Add lockfile workflow
-- [ ] 2.6 Add local bootstrap script
-- [ ] 2.7 Add task runner commands for common workflows
-- [ ] 2.8 Add `.env` validation script
-- [ ] 2.9 Expand `.env.example` comments
-- [ ] 2.10 Add `pre-commit` configuration
+- [x] 2.4 Add editable install workflow
+- [x] 2.5 Add lockfile workflow
+- [x] 2.6 Add local bootstrap script
+- [x] 2.7 Add task runner commands for common workflows
+- [x] 2.8 Add `.env` validation script
+- [x] 2.9 Expand `.env.example` comments
+- [x] 2.10 Add `pre-commit` configuration
 - [x] 2.11 Add Ruff configuration
 - [x] 2.12 Add Black configuration
-- [ ] 2.13 Add type-checking configuration
+- [x] 2.13 Add type-checking configuration
 - [x] 2.14 Add pytest configuration
-- [ ] 2.15 Add coverage configuration
-- [ ] 2.16 Add local smoke test script
+- [x] 2.15 Add coverage configuration
+- [x] 2.16 Add local smoke test script
 - [ ] 2.17 Add CI lint workflow
 - [ ] 2.18 Add CI test workflow
 - [ ] 2.19 Add CI type-check workflow
@@ -64,7 +191,7 @@ Working rules for this file:
 - [ ] 2.21 Add dependency update workflow
 - [ ] 2.22 Add release automation workflow
 
-## [ ] Sprint 3: Configuration, Modes & Domain Contracts (13/34 done)
+## [ ] Sprint 3: Configuration, Modes & Domain Contracts (26/34 done)
 
 ### [ ] 3. Configuration, Modes & Domain Contracts
 
@@ -76,14 +203,14 @@ Working rules for this file:
 - [x] 3.2.1 Load values from explicit `env` mapping in tests
 - [x] 3.2.2 Load values from process environment when no mapping is supplied
 - [x] 3.2.3 Support `LEXICHESS_MODEL` override over provider-specific model config
-- [ ] 3.3 Add configuration profile support
-- [ ] 3.4 Add benchmark-mode configuration
-- [ ] 3.5 Add showmatch-mode configuration
-- [ ] 3.6 Add interactive-mode configuration
-- [ ] 3.7 Add character-mode configuration
-- [ ] 3.8 Add feature flag support
-- [ ] 3.9 Add secrets redaction in logs
-- [ ] 3.10 Add structured logging configuration
+- [x] 3.3 Add configuration profile support
+- [x] 3.4 Add benchmark-mode configuration
+- [x] 3.5 Add showmatch-mode configuration
+- [x] 3.6 Add interactive-mode configuration
+- [x] 3.7 Add character-mode configuration
+- [x] 3.8 Add feature flag support
+- [x] 3.9 Add secrets redaction in logs
+- [x] 3.10 Add structured logging configuration
 - [ ] 3.11 Add model preset configuration support
 - [x] 3.11.1 Add default provider model selection helper
 - [x] 3.11.2 Add per-invocation model override support in CLI and provider builder
@@ -93,17 +220,17 @@ Working rules for this file:
 - [ ] 3.13 Add voice preset configuration support
 - [ ] 3.14 Add avatar preset configuration support
 - [ ] 3.15 Add GCP deployment configuration surface
-- [ ] 3.16 Add settings export command
+- [x] 3.16 Add settings export command
 - [x] 3.17 Add settings validation tests
 - [x] 3.17.1 Add default settings load test
 - [x] 3.17.2 Add global model override test
 - [ ] 3.18 Add configuration migration notes
-- [ ] 3.19 Add game-mode enum
-- [ ] 3.20 Add seat-controller enum
-- [ ] 3.21 Add persona-role enum
-- [ ] 3.22 Add environment profile definitions for `dev`, `staging`, and `prod`
+- [x] 3.19 Add game-mode enum
+- [x] 3.20 Add seat-controller enum
+- [x] 3.21 Add persona-role enum
+- [x] 3.22 Add environment profile definitions for `dev`, `staging`, and `prod`
 
-## [ ] Sprint 4: Chess Rules, Board State & Adjudication (17/33 done)
+## [ ] Sprint 4: Chess Rules, Board State & Adjudication (23/33 done)
 
 ### [ ] 4. Chess Rules, Board State & Adjudication
 
@@ -111,14 +238,14 @@ Working rules for this file:
 - [x] 4.1.1 Add `ChessBoard` initialization from optional FEN
 - [x] 4.1.2 Thread optional initial FEN into the game runner
 - [x] 4.1.3 Add CLI `--fen` argument
-- [ ] 4.1.4 Add dedicated regression tests for non-starting positions
+- [x] 4.1.4 Add dedicated regression tests for non-starting positions
 - [ ] 4.2 Add PGN import support
-- [ ] 4.3 Add PGN export support
+- [x] 4.3 Add PGN export support
 - [x] 4.4 Add SAN normalization coverage
 - [x] 4.5 Add UCI normalization coverage
 - [x] 4.6 Add castling notation normalization coverage
-- [ ] 4.7 Add promotion parsing coverage
-- [ ] 4.8 Add en passant validation coverage
+- [x] 4.7 Add promotion parsing coverage
+- [x] 4.8 Add en passant validation coverage
 - [ ] 4.9 Add repetition detection helpers
 - [ ] 4.10 Add fifty-move-rule helpers
 - [ ] 4.11 Add insufficient material detection
@@ -137,28 +264,28 @@ Working rules for this file:
 - [x] 4.20 Add move history serialization helpers
 - [x] 4.20.1 Add SAN move-history replay helper
 - [ ] 4.21 Add clock state serialization helpers
-- [ ] 4.22 Add legality explanation formatter
-- [ ] 4.23 Add chess regression fixture corpus
+- [x] 4.22 Add legality explanation formatter
+- [x] 4.23 Add chess regression fixture corpus
 - [ ] 4.24 Add board-state tests for control handoff safety
 
-## [ ] Sprint 5: Prompting, Move Parsing & Match Loop (17/45 done)
+## [ ] Sprint 5: Prompting, Move Parsing & Match Loop (33/45 done)
 
 ### [ ] 5. Prompting, Move Parsing & Match Loop
 
-- [ ] 5.1 Extract prompt builder into a dedicated module
+- [x] 5.1 Extract prompt builder into a dedicated module
 - [x] 5.1.1 Add inline `build_move_prompt()` helper in the match runner
-- [ ] 5.1.2 Move prompt construction out of `runner.py` into a dedicated prompts module
-- [ ] 5.1.3 Add prompt-builder-specific tests
-- [ ] 5.2 Add prompt version identifiers
+- [x] 5.1.2 Move prompt construction out of `runner.py` into a dedicated prompts module
+- [x] 5.1.3 Add prompt-builder-specific tests
+- [x] 5.2 Add prompt version identifiers
 - [x] 5.3 Add benchmark-mode move-only prompt template
 - [x] 5.3.1 Add benchmark-style system instruction constant
 - [x] 5.3.2 Include current FEN in prompt body
 - [x] 5.3.3 Include move history in prompt body
 - [x] 5.3.4 Include legal SAN moves in prompt body
-- [ ] 5.4 Add strict structured-output prompt template
-- [ ] 5.5 Add invalid-move retry prompt template
-- [ ] 5.6 Add deterministic invalid-move explanation prompt
-- [ ] 5.7 Add referee coaching suggestion prompt
+- [x] 5.4 Add strict structured-output prompt template
+- [x] 5.5 Add invalid-move retry prompt template
+- [x] 5.6 Add deterministic invalid-move explanation prompt
+- [x] 5.7 Add referee coaching suggestion prompt
 - [ ] 5.8 Add showmatch roast prompt
 - [ ] 5.9 Add locked-move trash-talk prompt
 - [ ] 5.10 Add post-game interview prompt
@@ -175,23 +302,23 @@ Working rules for this file:
 - [ ] 5.17 Add candidate ranking heuristics
 - [ ] 5.18 Add prompt experiment toggles
 - [ ] 5.19 Add benchmark contamination checks for prompt flows
-- [ ] 5.20 Add forced correction-and-resubmit loop
-- [ ] 5.21 Add deterministic wrong-move notification path from chess engine
-- [ ] 5.22 Add referee callback path after engine rejection
+- [x] 5.20 Add forced correction-and-resubmit loop
+- [x] 5.21 Add deterministic wrong-move notification path from chess engine
+- [x] 5.22 Add referee callback path after engine rejection
 - [x] 5.23 Add quiet JSON output mode to CLI
 - [x] 5.23.1 Add `--quiet` flag to CLI
 - [x] 5.23.2 Suppress summary output when `--quiet` is enabled
 - [ ] 5.24 Add verbose transcript output mode to CLI
-- [ ] 5.25 Add `replay` CLI command
-- [ ] 5.26 Add `inspect-game` CLI command
-- [ ] 5.27 Add `list-games` CLI command
-- [ ] 5.28 Add `export-game` CLI command
+- [x] 5.25 Add `replay` CLI command
+- [x] 5.26 Add `inspect-game` CLI command
+- [x] 5.27 Add `list-games` CLI command
+- [x] 5.28 Add `export-game` CLI command
 - [x] 5.29 Add move-loop unit tests
 - [x] 5.29.1 Add runner test for move-cap termination
 - [x] 5.29.2 Add runner test for invalid model output logging
-- [ ] 5.30 Add CLI integration tests
+- [x] 5.30 Add CLI integration tests
 
-## [ ] Sprint 6: Local Runtime Providers & GPU Operations (9/39 done)
+## [ ] Sprint 6: Local Runtime Providers & GPU Operations (18/39 done)
 
 ### [ ] 6. Local Runtime Providers & GPU Operations
 
@@ -199,20 +326,20 @@ Working rules for this file:
 - [x] 6.1.1 Add abstract `MoveProvider` base class
 - [x] 6.1.2 Add `request_move()` sync contract
 - [ ] 6.2 Add async provider interface
-- [ ] 6.3 Add provider capability model
+- [x] 6.3 Add provider capability model
 - [x] 6.4 Add provider error taxonomy
 - [x] 6.4.1 Add `ProviderError` base runtime failure type
-- [ ] 6.4.2 Add finer-grained provider error categories
-- [ ] 6.5 Add provider health check contract
-- [ ] 6.6 Add retry and backoff policy contract
-- [ ] 6.7 Add timeout policy contract
+- [x] 6.4.2 Add finer-grained provider error categories
+- [x] 6.5 Add provider health check contract
+- [x] 6.6 Add retry and backoff policy contract
+- [x] 6.7 Add timeout policy contract
 - [ ] 6.8 Add provider selection policy
 - [ ] 6.9 Add provider mock harness
-- [ ] 6.10 Add Ollama host health probe
+- [x] 6.10 Add Ollama host health probe
 - [x] 6.10.1 Normalize Ollama API base URLs consistently
-- [ ] 6.10.2 Add dedicated host health probe method
-- [ ] 6.10.3 Add health probe CLI or diagnostics command
-- [ ] 6.11 Add Ollama model existence check
+- [x] 6.10.2 Add dedicated host health probe method
+- [x] 6.10.3 Add health probe CLI or diagnostics command
+- [x] 6.11 Add Ollama model existence check
 - [ ] 6.12 Add Ollama model warmup command
 - [ ] 6.13 Add Ollama context-window configuration support
 - [ ] 6.14 Add Ollama thinking-output handling
@@ -235,17 +362,17 @@ Working rules for this file:
 - [ ] 6.29 Add referee-model deployment preset
 - [ ] 6.30 Add optional `Gemma` player deployment preset
 
-## [ ] Sprint 7: Stockfish, Ratings & Chess Index Core (0/26 done)
+## [ ] Sprint 7: Stockfish, Ratings & Chess Index Core (8/26 done)
 
 ### [ ] 7. Stockfish, Ratings & Chess Index Core
 
 - [ ] 7.1 Add Stockfish binary discovery
-- [ ] 7.2 Add Stockfish engine configuration options
+- [x] 7.2 Add Stockfish engine configuration options
 - [ ] 7.3 Add engine move adapter
 - [ ] 7.4 Add engine-vs-model match mode
 - [ ] 7.5 Add centipawn evaluation logging
-- [ ] 7.6 Add best-line annotations
-- [ ] 7.7 Add MultiPV analysis mode
+- [x] 7.6 Add best-line annotations
+- [x] 7.7 Add MultiPV analysis mode
 - [ ] 7.8 Add configurable 2-5 move lookahead
 - [ ] 7.9 Add opening classification support
 - [ ] 7.10 Add blunder, mistake, and inaccuracy labels
@@ -253,16 +380,16 @@ Working rules for this file:
 - [ ] 7.12 Add swing-detection helper
 - [ ] 7.13 Add engine summary payload for players
 - [ ] 7.14 Add engine summary payload for referee
-- [ ] 7.15 Define anchor engine ladder
+- [x] 7.15 Define anchor engine ladder
 - [ ] 7.16 Select public rating model
 - [ ] 7.17 Select internal confidence model
-- [ ] 7.18 Add provisional rating rules
-- [ ] 7.19 Add competitor identity schema
-- [ ] 7.20 Add rating update service
+- [x] 7.18 Add provisional rating rules
+- [x] 7.19 Add competitor identity schema
+- [x] 7.20 Add rating update service
 - [ ] 7.21 Add rating snapshot history
 - [ ] 7.22 Add public `Chess Index` generation logic
 - [ ] 7.23 Add rating export format
-- [ ] 7.24 Add rating tests
+- [x] 7.24 Add rating tests
 - [ ] 7.25 Add benchmark summary report template
 - [ ] 7.26 Add Chess Index reproducibility manifest
 

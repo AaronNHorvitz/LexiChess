@@ -11,20 +11,42 @@ The repository contains a CLI-driven game runner, a local-model adapter for `Oll
 ## Local Setup
 
 1. Install Python 3.10 or newer.
-2. Create a virtual environment: `python -m venv .venv`
-3. Install the current dependency set:
+2. Bootstrap the local environment:
 
 ```bash
-.venv/bin/python -m pip install python-chess httpx python-dotenv pytest ruff black
+make bootstrap
 ```
 
-4. Run the test suite:
+3. Copy `.env.example` to `.env` if you want to run local model games.
+4. Validate the environment:
 
 ```bash
-PYTHONPATH=src .venv/bin/pytest
+make validate-env
+```
+
+5. Run the test suite:
+
+```bash
+make test
 ```
 
 There is no web UI yet. The current entrypoint is [src/lexichess/cli.py](/var/home/aaronnhorvitz/dev/LexiChess/src/lexichess/cli.py:1).
+
+Useful commands:
+
+```bash
+make lint
+make typecheck
+make coverage
+make smoke
+```
+
+If you prefer a manual install instead of the bootstrap script:
+
+```bash
+python -m venv .venv
+.venv/bin/pip install -e '.[dev]'
+```
 
 ## High-Value Contribution Areas
 
@@ -41,6 +63,7 @@ There is no web UI yet. The current entrypoint is [src/lexichess/cli.py](/var/ho
 - Preserve a runtime-agnostic design so multiple self-hosted backends can share the same match loop
 - Prefer small, focused pull requests over broad speculative scaffolding
 - Update documentation whenever the repository structure or setup expectations change
+- Keep policy and support docs in [docs/README.md](./docs/README.md) aligned with the codebase
 
 ## Pull Requests
 

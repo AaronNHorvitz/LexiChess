@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Read the project docs
+    url: https://github.com/AaronNHorvitz/LexiChess/blob/main/README.md
+    about: Start with the README, PRD, and TASKS before opening broad planning issues.
