@@ -8,6 +8,8 @@ from _pytest.capture import CaptureFixture
 from _pytest.monkeypatch import MonkeyPatch
 
 from lexichess.cli import main
+from lexichess.llm.base import MoveProvider, ProviderCapabilities, ProviderHealthReport
+from lexichess.llm.types import MoveRequest, ProviderResponse
 from lexichess.storage import SQLiteRepository
 
 
@@ -75,6 +77,17 @@ def test_cli_can_list_inspect_replay_and_export_games(
         latency_ms=5,
         error=None,
     )
+    repository.log_engine_analysis(
+        game_id=game_id,
+        turn_id=1,
+        ply=1,
+        analyzed_fen="rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
+        engine_path="stockfish",
+        engine_depth=12,
+        engine_multipv=1,
+        engine_movetime_ms=None,
+        lines=[],
+    )
     repository.finish_game(
         game_id,
         status="completed",
@@ -103,6 +116,7 @@ def test_cli_can_list_inspect_replay_and_export_games(
     inspected = json.loads(capsys.readouterr().out)
     assert inspected["game"]["id"] == game_id
     assert inspected["moves"] == ["e4"]
+    assert "engine_analyses" in inspected
 
     assert (
         main(["replay", str(game_id), "--db-path", str(repository.database_path)]) == 0
@@ -227,3 +241,96 @@ def test_cli_can_rate_game_and_list_rating_history(
     )
     history = json.loads(capsys.readouterr().out)
     assert len(history) == 1
+
+
+class FakeBatchProvider(MoveProvider):
+    def __init__(self, provider_name: str, model: str, outputs: list[str]) -> None:
+        self.provider_name = provider_name
+        self.model = model
+        self._outputs = outputs
+
+    def capabilities(self) -> ProviderCapabilities:
+        return ProviderCapabilities(
+            supports_sync_requests=True,
+            supports_health_checks=True,
+            local_only=True,
+        )
+
+    def health_check(self) -> ProviderHealthReport:
+        return ProviderHealthReport(
+            provider_name=self.provider_name,
+            model=self.model,
+            is_healthy=True,
+            model_available=True,
+            capabilities=self.capabilities(),
+        )
+
+    def request_move(self, request: MoveRequest) -> ProviderResponse:
+        del request
+        output = self._outputs.pop(0)
+        return ProviderResponse(
+            provider=self.provider_name,
+            model=self.model,
+            output_text=output,
+            raw_response={"text": output},
+            latency_ms=1,
+        )
+
+
+def test_cli_can_run_anchor_benchmark(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+    monkeypatch: MonkeyPatch,
+) -> None:
+    provider_outputs = {
+        ("ollama", "qwen3:8b"): ["e4"],
+        ("stockfish", "stockfish_beginner"): ["banana", "still not a move"],
+    }
+
+    def fake_build_provider(
+        provider_name: str,
+        settings: object,
+        *,
+        model: str | None = None,
+    ) -> FakeBatchProvider:
+        del settings
+        resolved_model = model or "unknown"
+        outputs = provider_outputs[(provider_name, resolved_model)]
+        return FakeBatchProvider(provider_name, resolved_model, list(outputs))
+
+    monkeypatch.setenv("LEXICHESS_PROVIDER", "ollama")
+    monkeypatch.setenv("OLLAMA_MODEL", "qwen3:8b")
+    monkeypatch.setattr(
+        "lexichess.tournament.benchmark.build_provider", fake_build_provider
+    )
+
+    database_path = tmp_path / "anchor_benchmark.db"
+    assert (
+        main(
+            [
+                "run-anchor-benchmark",
+                "--challenger-provider",
+                "ollama",
+                "--challenger-model",
+                "qwen3:8b",
+                "--anchor",
+                "stockfish_beginner",
+                "--games-per-anchor",
+                "1",
+                "--max-plies",
+                "2",
+                "--skip-analysis",
+                "--db-path",
+                str(database_path),
+                "--json",
+            ]
+        )
+        == 0
+    )
+    payload = json.loads(capsys.readouterr().out)
+    repository = SQLiteRepository(database_path)
+
+    assert payload["scheduled_matches"] == 1
+    assert payload["matches"][0]["result"] == "1-0"
+    assert len(repository.list_games()) == 1
+    assert len(repository.list_latest_ratings()) == 2

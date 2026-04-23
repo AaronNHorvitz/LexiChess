@@ -5,6 +5,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
+from lexichess.analysis import EngineAnalysis
 from lexichess.index.models import RatingSnapshot
 from lexichess.storage.schema import ensure_schema
 
@@ -242,6 +243,91 @@ class SQLiteRepository:
             ).fetchall()
         return [_plain_row(row) for row in rows]
 
+    def log_engine_analysis(
+        self,
+        *,
+        game_id: int,
+        turn_id: int | None,
+        ply: int,
+        analyzed_fen: str,
+        engine_path: str,
+        engine_depth: int | None,
+        engine_multipv: int | None,
+        engine_movetime_ms: int | None,
+        lines: list[EngineAnalysis],
+    ) -> None:
+        if not lines:
+            return
+
+        rows = [
+            (
+                game_id,
+                turn_id,
+                ply,
+                analyzed_fen,
+                engine_path,
+                engine_depth,
+                engine_multipv,
+                engine_movetime_ms,
+                line.multipv_rank,
+                line.best_move_uci,
+                line.best_move_san,
+                line.score_cp,
+                line.score_mate,
+                _dump_json({"pv_uci": list(line.pv_uci)}),
+                _dump_json({"pv_san": list(line.pv_san)}),
+            )
+            for line in lines
+        ]
+
+        with self._connect() as connection:
+            connection.executemany(
+                """
+                INSERT INTO engine_analyses (
+                    game_id,
+                    turn_id,
+                    ply,
+                    analyzed_fen,
+                    engine_path,
+                    engine_depth,
+                    engine_multipv,
+                    engine_movetime_ms,
+                    multipv_rank,
+                    best_move_uci,
+                    best_move_san,
+                    score_cp,
+                    score_mate,
+                    pv_uci_json,
+                    pv_san_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                rows,
+            )
+            connection.commit()
+
+    def list_engine_analyses(
+        self,
+        game_id: int,
+        *,
+        ply: int | None = None,
+    ) -> list[dict[str, Any]]:
+        where_clause = "WHERE game_id = ?"
+        params: tuple[Any, ...] = (game_id,)
+        if ply is not None:
+            where_clause += " AND ply = ?"
+            params = (game_id, ply)
+
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT * FROM engine_analyses
+                {where_clause}
+                ORDER BY ply ASC, multipv_rank ASC, id ASC
+                """,
+                params,
+            ).fetchall()
+        return [_engine_analysis_row(row) for row in rows]
+
     def record_rating_snapshot(
         self,
         snapshot: RatingSnapshot,
@@ -362,6 +448,19 @@ def _turn_row(row: sqlite3.Row) -> dict[str, Any]:
     payload = dict(row)
     payload["is_legal"] = bool(payload["is_legal"])
     payload["raw_response_json"] = _load_json(payload["raw_response_json"])
+    return payload
+
+
+def _engine_analysis_row(row: sqlite3.Row) -> dict[str, Any]:
+    payload = dict(row)
+    pv_uci_payload = _load_json(payload.pop("pv_uci_json"))
+    pv_san_payload = _load_json(payload.pop("pv_san_json"))
+    payload["pv_uci"] = (
+        list(pv_uci_payload.get("pv_uci", [])) if pv_uci_payload is not None else []
+    )
+    payload["pv_san"] = (
+        list(pv_san_payload.get("pv_san", [])) if pv_san_payload is not None else []
+    )
     return payload
 
 

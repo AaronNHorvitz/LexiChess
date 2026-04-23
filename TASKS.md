@@ -362,7 +362,7 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [ ] 6.29 Add referee-model deployment preset
 - [ ] 6.30 Add optional `Gemma` player deployment preset
 
-## [ ] Sprint 7: Stockfish, Ratings & Chess Index Core (11/26 done)
+## [ ] Sprint 7: Stockfish, Ratings & Chess Index Core (12/26 done)
 
 ### [ ] 7. Stockfish, Ratings & Chess Index Core
 
@@ -370,7 +370,7 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [x] 7.2 Add Stockfish engine configuration options
 - [x] 7.3 Add engine move adapter
 - [x] 7.4 Add engine-vs-model match mode
-- [ ] 7.5 Add centipawn evaluation logging
+- [x] 7.5 Add centipawn evaluation logging
 - [x] 7.6 Add best-line annotations
 - [x] 7.7 Add MultiPV analysis mode
 - [ ] 7.8 Add configurable 2-5 move lookahead
@@ -422,7 +422,7 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [ ] 8.23 Add intake audit log
 - [ ] 8.24 Add model intake tests
 
-## [ ] Sprint 9: Data Schema, Migrations & Replay Persistence (14/35 done)
+## [ ] Sprint 9: Data Schema, Migrations & Replay Persistence (15/35 done)
 
 ### [ ] 9. Data Schema, Migrations & Replay Persistence
 
@@ -446,7 +446,7 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [ ] 9.7 Add `chat_messages` table
 - [ ] 9.8 Add `referee_events` table
 - [ ] 9.9 Add `banter_events` table
-- [ ] 9.10 Add `engine_analyses` table
+- [x] 9.10 Add `engine_analyses` table
 - [x] 9.11 Add `ratings` table
 - [ ] 9.12 Add `model_catalog` table
 - [ ] 9.13 Add `personality_catalog` table
@@ -462,17 +462,17 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [ ] 9.23 Add data retention notes
 - [ ] 9.24 Add replay package structure definition
 
-## [ ] Sprint 10: Tournament Scheduling & Batch Orchestration (0/22 done)
+## [ ] Sprint 10: Tournament Scheduling & Batch Orchestration (3/22 done)
 
 ### [ ] 10. Tournament Scheduling & Batch Orchestration
 
 - [ ] 10.1 Add tournament entity
 - [ ] 10.2 Add roster entry entity
-- [ ] 10.3 Add pairing entity
+- [x] 10.3 Add pairing entity
 - [ ] 10.4 Add standings entity
 - [ ] 10.5 Add round state entity
-- [ ] 10.6 Add round-robin scheduler
-- [ ] 10.7 Add engine-anchor scheduling mode
+- [x] 10.6 Add round-robin scheduler
+- [x] 10.7 Add engine-anchor scheduling mode
 - [ ] 10.8 Add named tournament presets
 - [ ] 10.9 Add batch single-game execution command
 - [ ] 10.10 Add resumable tournament runs

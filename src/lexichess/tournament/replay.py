@@ -60,9 +60,11 @@ def build_game_bundle(
     game: Mapping[str, Any],
     turns: Iterable[Mapping[str, Any]],
     hallucinations: Iterable[Mapping[str, Any]],
+    engine_analyses: Iterable[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     turn_rows = [dict(turn) for turn in turns]
     hallucination_rows = [dict(item) for item in hallucinations]
+    analysis_rows = [dict(item) for item in (engine_analyses or ())]
     accepted = accepted_turns(turn_rows)
     return {
         "game": dict(game),
@@ -70,6 +72,7 @@ def build_game_bundle(
         "accepted_turns": accepted,
         "moves": accepted_san_moves(accepted),
         "hallucinations": hallucination_rows,
+        "engine_analyses": analysis_rows,
         "move_list": render_move_list(accepted),
         "pgn": build_game_pgn(game, accepted),
     }
@@ -79,5 +82,9 @@ def export_game_json(
     game: Mapping[str, Any],
     turns: Iterable[Mapping[str, Any]],
     hallucinations: Iterable[Mapping[str, Any]],
+    engine_analyses: Iterable[Mapping[str, Any]] | None = None,
 ) -> str:
-    return json.dumps(build_game_bundle(game, turns, hallucinations), indent=2)
+    return json.dumps(
+        build_game_bundle(game, turns, hallucinations, engine_analyses),
+        indent=2,
+    )

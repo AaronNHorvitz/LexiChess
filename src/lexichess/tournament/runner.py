@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from lexichess.analysis import StockfishEngine
 from lexichess.chess import ChessBoard
 from lexichess.llm import MoveProvider, MoveRequest, ProviderError
 from lexichess.storage.repository import SQLiteRepository
@@ -28,6 +29,7 @@ class GameRunner:
         log_raw_response_json: bool = True,
         max_correction_attempts: int = 1,
         referee_callback: RefereeCallback | None = None,
+        analysis_engine: StockfishEngine | None = None,
     ) -> None:
         self.white_provider = white_provider
         self.black_provider = black_provider
@@ -38,6 +40,7 @@ class GameRunner:
         self.log_raw_response_json = log_raw_response_json
         self.max_correction_attempts = max_correction_attempts
         self.referee_callback = referee_callback
+        self.analysis_engine = analysis_engine
 
     def play(self, *, initial_fen: str | None = None) -> GameResult:
         self.repository.initialize()
@@ -114,13 +117,16 @@ class GameRunner:
                 notification=last_notification,
                 referee_note=referee_note,
             )
+            prompt_kind, prompt_version = self._prompt_metadata(
+                provider, prompt_template
+            )
             request = MoveRequest(
                 game_id=game_id,
                 move_number=board.ply,
                 color=color,
                 fen=fen_before,
-                prompt_kind=prompt_template.kind,
-                prompt_version=prompt_template.version,
+                prompt_kind=prompt_kind,
+                prompt_version=prompt_version,
                 prompt=prompt_template.prompt,
                 instructions=prompt_template.instructions,
                 legal_moves=legal_moves,
@@ -138,8 +144,8 @@ class GameRunner:
                     color=color,
                     provider=provider.provider_name,
                     model=provider.model,
-                    prompt_kind=prompt_template.kind,
-                    prompt_version=prompt_template.version,
+                    prompt_kind=prompt_kind,
+                    prompt_version=prompt_version,
                     prompt=prompt_template.prompt,
                     instructions=prompt_template.instructions,
                     raw_response_text="",
@@ -174,15 +180,15 @@ class GameRunner:
             interpretation = board.parse_move_text(response.output_text)
             if interpretation.san is not None:
                 normalized_move = board.apply_san(interpretation.san)
-                self.repository.log_turn(
+                turn_id = self.repository.log_turn(
                     game_id=game_id,
                     ply=request.move_number,
                     attempt=attempt,
                     color=color,
                     provider=provider.provider_name,
                     model=provider.model,
-                    prompt_kind=prompt_template.kind,
-                    prompt_version=prompt_template.version,
+                    prompt_kind=prompt_kind,
+                    prompt_version=prompt_version,
                     prompt=prompt_template.prompt,
                     instructions=prompt_template.instructions,
                     raw_response_text=response.output_text,
@@ -198,6 +204,12 @@ class GameRunner:
                     latency_ms=response.latency_ms,
                     error=None,
                     referee_note=referee_note,
+                )
+                self._record_engine_analysis(
+                    game_id=game_id,
+                    turn_id=turn_id,
+                    ply=request.move_number,
+                    analyzed_fen=board.fen,
                 )
                 return normalized_move, None
 
@@ -217,8 +229,8 @@ class GameRunner:
                 reason=interpretation.reason or "invalid_or_illegal_move",
                 deterministic_explanation=deterministic_explanation,
                 legal_moves=legal_moves,
-                prompt_kind=prompt_template.kind,
-                prompt_version=prompt_template.version,
+                prompt_kind=prompt_kind,
+                prompt_version=prompt_version,
             )
             referee_note = self._notify_referee(last_notification)
 
@@ -229,8 +241,8 @@ class GameRunner:
                 color=color,
                 provider=provider.provider_name,
                 model=provider.model,
-                prompt_kind=prompt_template.kind,
-                prompt_version=prompt_template.version,
+                prompt_kind=prompt_kind,
+                prompt_version=prompt_version,
                 prompt=prompt_template.prompt,
                 instructions=prompt_template.instructions,
                 raw_response_text=response.output_text,
@@ -270,6 +282,15 @@ class GameRunner:
 
         raise RuntimeError("Turn loop exited without producing a result.")
 
+    def _prompt_metadata(
+        self,
+        provider: MoveProvider,
+        prompt_template: PromptTemplate,
+    ) -> tuple[str, str]:
+        if provider.provider_name == "stockfish":
+            return "engine_move", "engine_anchor"
+        return prompt_template.kind, prompt_template.version
+
     def _prompt_for_attempt(
         self,
         *,
@@ -290,6 +311,32 @@ class GameRunner:
 
     def _provider_for_color(self, color: str) -> MoveProvider:
         return self.white_provider if color == "white" else self.black_provider
+
+    def _record_engine_analysis(
+        self,
+        *,
+        game_id: int,
+        turn_id: int,
+        ply: int,
+        analyzed_fen: str,
+    ) -> None:
+        if self.analysis_engine is None:
+            return
+        try:
+            lines = self.analysis_engine.analyze(analyzed_fen)
+        except Exception:  # pragma: no cover - optional enrichment path
+            return
+        self.repository.log_engine_analysis(
+            game_id=game_id,
+            turn_id=turn_id,
+            ply=ply,
+            analyzed_fen=analyzed_fen,
+            engine_path=self.analysis_engine.path,
+            engine_depth=self.analysis_engine.depth,
+            engine_multipv=self.analysis_engine.multipv,
+            engine_movetime_ms=self.analysis_engine.movetime_ms,
+            lines=lines,
+        )
 
     def _notify_referee(self, notification: InvalidMoveNotification) -> str | None:
         if self.referee_callback is None:

@@ -13,8 +13,7 @@ from lexichess.index import (
     RatingSnapshot,
     apply_elo_result,
     default_engine_anchors,
-    identity_from_game,
-    rate_completed_game,
+    rate_recorded_game,
 )
 from lexichess.llm.registry import build_provider
 from lexichess.storage.repository import SQLiteRepository
@@ -23,6 +22,7 @@ from lexichess.tournament.replay import (
     export_game_json,
     render_move_list,
 )
+from lexichess.tournament import PlayerSpec, run_anchor_benchmark
 from lexichess.tournament.runner import GameRunner
 
 
@@ -69,6 +69,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Number of retry attempts after a deterministically rejected move.",
     )
     play_parser.add_argument("--db-path", help="Override the SQLite database path.")
+    play_parser.add_argument(
+        "--skip-analysis",
+        action="store_true",
+        help="Disable post-move Stockfish analysis persistence for this game.",
+    )
     play_parser.add_argument(
         "--quiet", action="store_true", help="Suppress the JSON game summary output."
     )
@@ -171,6 +176,48 @@ def build_parser() -> argparse.ArgumentParser:
     rate_game_parser.add_argument("--black-revision")
     rate_game_parser.add_argument("--json", action="store_true")
 
+    anchor_benchmark_parser = subparsers.add_parser(
+        "run-anchor-benchmark",
+        help="Run and rate a batch of challenger-vs-anchor games.",
+    )
+    anchor_benchmark_parser.add_argument(
+        "--challenger-provider",
+        choices=[provider.value for provider in ProviderName],
+        help="Provider for the challenger. Defaults to LEXICHESS_PROVIDER.",
+    )
+    anchor_benchmark_parser.add_argument(
+        "--challenger-model",
+        help="Model override for the challenger. Defaults to the provider model in settings.",
+    )
+    anchor_benchmark_parser.add_argument(
+        "--anchor",
+        dest="anchors",
+        action="append",
+        help="Anchor name to include. Repeat to select multiple anchors. Defaults to the full anchor ladder.",
+    )
+    anchor_benchmark_parser.add_argument("--games-per-anchor", type=int, default=2)
+    anchor_benchmark_parser.add_argument("--max-plies", type=int)
+    anchor_benchmark_parser.add_argument(
+        "--max-correction-attempts",
+        type=int,
+        default=1,
+        help="Number of retry attempts after a deterministically rejected move.",
+    )
+    anchor_benchmark_parser.add_argument(
+        "--skip-analysis",
+        action="store_true",
+        help="Disable post-move Stockfish analysis persistence during the benchmark.",
+    )
+    anchor_benchmark_parser.add_argument(
+        "--skip-rating",
+        action="store_true",
+        help="Skip automatic Elo updates after each completed game.",
+    )
+    anchor_benchmark_parser.add_argument(
+        "--db-path", help="Override the SQLite database path."
+    )
+    anchor_benchmark_parser.add_argument("--json", action="store_true")
+
     elo_parser = subparsers.add_parser(
         "elo-preview", help="Preview an Elo update for two ratings."
     )
@@ -227,6 +274,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "rate-game":
         return _run_rate_game(args, settings)
 
+    if args.command == "run-anchor-benchmark":
+        return _run_anchor_benchmark(args, settings)
+
     if args.command == "elo-preview":
         return _run_elo_preview(args)
 
@@ -246,6 +296,14 @@ def _run_play(args: argparse.Namespace, settings: AppSettings) -> int:
     )
 
     repository = _build_repository(args, settings)
+    analysis_engine = None
+    if not args.skip_analysis:
+        analysis_engine = StockfishEngine(
+            path=settings.stockfish.path,
+            depth=settings.stockfish.depth,
+            multipv=settings.stockfish.multipv,
+            movetime_ms=settings.stockfish.movetime_ms,
+        )
     runner = GameRunner(
         white_provider=white_provider,
         black_provider=black_provider,
@@ -255,6 +313,7 @@ def _run_play(args: argparse.Namespace, settings: AppSettings) -> int:
         max_output_tokens=settings.max_output_tokens,
         log_raw_response_json=settings.log_raw_response_json,
         max_correction_attempts=args.max_correction_attempts,
+        analysis_engine=analysis_engine,
     )
     result = runner.play(initial_fen=args.fen)
 
@@ -326,11 +385,12 @@ def _run_export_game(args: argparse.Namespace, settings: AppSettings) -> int:
     game = _require_game(repository, args.game_id)
     turns = repository.list_turns(args.game_id)
     hallucinations = repository.list_hallucinations(args.game_id)
+    engine_analyses = repository.list_engine_analyses(args.game_id)
 
     if args.format == "pgn":
-        payload = build_game_bundle(game, turns, hallucinations)["pgn"]
+        payload = build_game_bundle(game, turns, hallucinations, engine_analyses)["pgn"]
     else:
-        payload = export_game_json(game, turns, hallucinations)
+        payload = export_game_json(game, turns, hallucinations, engine_analyses)
 
     if args.output:
         Path(args.output).write_text(payload + ("" if payload.endswith("\n") else "\n"))
@@ -463,46 +523,23 @@ def _run_rating_history(args: argparse.Namespace, settings: AppSettings) -> int:
 
 def _run_rate_game(args: argparse.Namespace, settings: AppSettings) -> int:
     repository = _build_repository(args, settings)
-    game = _require_game(repository, args.game_id)
-    turns = repository.list_turns(args.game_id)
-    result = game.get("result")
-    if not isinstance(result, str) or result not in {"1-0", "0-1", "1/2-1/2"}:
-        raise SystemExit(
-            f"Game {args.game_id} does not have a rateable result. "
-            "Expected one of 1-0, 0-1, or 1/2-1/2."
-        )
-
-    white_identity = identity_from_game(
-        game,
-        turns,
-        color="white",
-        runtime=args.white_runtime,
-        prompt_profile=args.white_prompt_profile,
-        quantization=args.white_quantization,
-        hardware_class=args.white_hardware_class,
-        revision=args.white_revision,
-    )
-    black_identity = identity_from_game(
-        game,
-        turns,
-        color="black",
-        runtime=args.black_runtime,
-        prompt_profile=args.black_prompt_profile,
-        quantization=args.black_quantization,
-        hardware_class=args.black_hardware_class,
-        revision=args.black_revision,
-    )
-
-    update = rate_completed_game(
+    update = rate_recorded_game(
         repository,
-        white=white_identity,
-        black=black_identity,
-        result=result,
-        source_game_id=args.game_id,
+        args.game_id,
+        white_runtime=args.white_runtime,
+        black_runtime=args.black_runtime,
+        white_prompt_profile=args.white_prompt_profile,
+        black_prompt_profile=args.black_prompt_profile,
+        white_quantization=args.white_quantization,
+        black_quantization=args.black_quantization,
+        white_hardware_class=args.white_hardware_class,
+        black_hardware_class=args.black_hardware_class,
+        white_revision=args.white_revision,
+        black_revision=args.black_revision,
     )
     payload = {
         "game_id": args.game_id,
-        "result": result,
+        "result": update.result,
         "white": {
             "slug": update.white_after.competitor.slug,
             "before": update.white_before.rating,
@@ -519,6 +556,66 @@ def _run_rate_game(args: argparse.Namespace, settings: AppSettings) -> int:
         },
     }
     print(json.dumps(payload, indent=2))
+    return 0
+
+
+def _run_anchor_benchmark(args: argparse.Namespace, settings: AppSettings) -> int:
+    challenger_provider = args.challenger_provider or settings.default_provider.value
+    challenger_model = args.challenger_model or settings.model_for(challenger_provider)
+    repository = _build_repository(args, settings)
+    summary = run_anchor_benchmark(
+        challenger=PlayerSpec(
+            provider_name=challenger_provider,
+            model=challenger_model,
+        ),
+        settings=settings,
+        repository=repository,
+        anchor_names=args.anchors,
+        games_per_anchor=args.games_per_anchor,
+        max_plies=args.max_plies,
+        max_correction_attempts=args.max_correction_attempts,
+        record_engine_analysis=not args.skip_analysis,
+        auto_rate=not args.skip_rating,
+    )
+    matches_payload: list[dict[str, Any]] = [
+        {
+            "match_number": item.match.match_number,
+            "round_number": item.match.round_number,
+            "tag": item.match.tag,
+            "white": item.match.white.label,
+            "black": item.match.black.label,
+            "game_id": item.game.game_id,
+            "status": item.game.status,
+            "result": item.game.result,
+            "termination_reason": item.game.termination_reason,
+            "rating_update": (
+                {
+                    "white_after": item.rating_update.white_after.rating,
+                    "black_after": item.rating_update.black_after.rating,
+                    "white_slug": item.rating_update.white_after.competitor.slug,
+                    "black_slug": item.rating_update.black_after.competitor.slug,
+                }
+                if item.rating_update is not None
+                else None
+            ),
+        }
+        for item in summary.matches
+    ]
+    payload = {
+        "scheduled_matches": len(summary.matches),
+        "completed_matches": len(summary.matches),
+        "matches": matches_payload,
+    }
+    if args.json:
+        print(json.dumps(payload, indent=2))
+        return 0
+
+    for item in matches_payload:
+        print(
+            f"match {item['match_number']}: {item['white']} vs {item['black']} "
+            f"game_id={item['game_id']} result={item['result'] or '*'} "
+            f"reason={item['termination_reason'] or '-'}"
+        )
     return 0
 
 
@@ -565,7 +662,8 @@ def _game_bundle_for(repository: SQLiteRepository, game_id: int) -> dict[str, An
     game = _require_game(repository, game_id)
     turns = repository.list_turns(game_id)
     hallucinations = repository.list_hallucinations(game_id)
-    return build_game_bundle(game, turns, hallucinations)
+    engine_analyses = repository.list_engine_analyses(game_id)
+    return build_game_bundle(game, turns, hallucinations, engine_analyses)
 
 
 def _require_game(repository: SQLiteRepository, game_id: int) -> dict[str, Any]:

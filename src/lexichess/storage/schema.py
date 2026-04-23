@@ -63,12 +63,43 @@ CREATE TABLE IF NOT EXISTS hallucinations (
 );
 """
 
+ENGINE_ANALYSIS_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS engine_analyses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    turn_id INTEGER REFERENCES turns(id) ON DELETE SET NULL,
+    ply INTEGER NOT NULL,
+    analyzed_fen TEXT NOT NULL,
+    engine_path TEXT NOT NULL,
+    engine_depth INTEGER,
+    engine_multipv INTEGER,
+    engine_movetime_ms INTEGER,
+    multipv_rank INTEGER NOT NULL,
+    best_move_uci TEXT,
+    best_move_san TEXT,
+    score_cp INTEGER,
+    score_mate INTEGER,
+    pv_uci_json TEXT NOT NULL,
+    pv_san_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
 TURNS_GAME_INDEX_SQL = """
 CREATE INDEX IF NOT EXISTS idx_turns_game_id ON turns(game_id);
 """
 
 HALLUCINATIONS_GAME_INDEX_SQL = """
 CREATE INDEX IF NOT EXISTS idx_hallucinations_game_id ON hallucinations(game_id);
+"""
+
+ENGINE_ANALYSES_GAME_INDEX_SQL = """
+CREATE INDEX IF NOT EXISTS idx_engine_analyses_game_id
+ON engine_analyses(game_id, ply ASC, multipv_rank ASC, id ASC);
+"""
+
+ENGINE_ANALYSES_TURN_INDEX_SQL = """
+CREATE INDEX IF NOT EXISTS idx_engine_analyses_turn_id ON engine_analyses(turn_id);
 """
 
 RATINGS_TABLE_SQL = """
@@ -99,9 +130,12 @@ BASE_SCHEMA_STATEMENTS = (
     GAME_TABLE_SQL,
     TURN_TABLE_SQL,
     HALLUCINATION_TABLE_SQL,
+    ENGINE_ANALYSIS_TABLE_SQL,
     RATINGS_TABLE_SQL,
     TURNS_GAME_INDEX_SQL,
     HALLUCINATIONS_GAME_INDEX_SQL,
+    ENGINE_ANALYSES_GAME_INDEX_SQL,
+    ENGINE_ANALYSES_TURN_INDEX_SQL,
     RATINGS_SLUG_INDEX_SQL,
 )
 

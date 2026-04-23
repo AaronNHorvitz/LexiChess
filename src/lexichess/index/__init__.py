@@ -6,6 +6,7 @@ from lexichess.index.service import (
     identity_from_game,
     latest_or_default_snapshot,
     rate_completed_game,
+    rate_recorded_game,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "identity_from_game",
     "latest_or_default_snapshot",
     "rate_completed_game",
+    "rate_recorded_game",
 ]

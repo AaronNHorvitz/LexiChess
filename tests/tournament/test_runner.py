@@ -3,6 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+import chess
+import chess.engine
+
+from lexichess.analysis import StockfishEngine
 from lexichess.llm.base import MoveProvider, ProviderCapabilities, ProviderHealthReport
 from lexichess.llm.types import MoveRequest, ProviderResponse
 from lexichess.storage import SQLiteRepository
@@ -43,6 +47,31 @@ class ScriptedProvider(MoveProvider):
             raw_response={"text": output},
             latency_ms=1,
         )
+
+
+class FakeAnalysisProcess:
+    def __init__(self) -> None:
+        self.id = {"name": "FakeStockfish"}
+
+    def analyse(
+        self,
+        board: chess.Board,
+        limit: chess.engine.Limit,
+        *,
+        multipv: int = 1,
+    ) -> list[dict[str, object]]:
+        del limit
+        move = next(iter(board.legal_moves))
+        return [
+            {
+                "pv": [move],
+                "score": chess.engine.PovScore(chess.engine.Cp(42), chess.WHITE),
+            }
+            for _ in range(multipv)
+        ]
+
+    def quit(self) -> None:
+        return None
 
 
 def test_runner_plays_until_move_cap(tmp_path: Path) -> None:
@@ -121,3 +150,33 @@ def test_runner_records_invalid_model_output_as_hallucination(tmp_path: Path) ->
     assert hallucinations[0]["reason"] == "no_candidate_found"
     assert turns[1]["attempt"] == 1
     assert turns[2]["attempt"] == 2
+
+
+def test_runner_records_engine_analysis_and_stockfish_prompt_metadata(
+    tmp_path: Path,
+) -> None:
+    repository = SQLiteRepository(tmp_path / "runner_analysis.db")
+    analysis_engine = StockfishEngine(
+        path="fake-stockfish",
+        multipv=2,
+        engine_factory=lambda _: FakeAnalysisProcess(),
+    )
+    runner = GameRunner(
+        white_provider=ScriptedProvider("stockfish", "stockfish_club", ["e4"]),
+        black_provider=ScriptedProvider("ollama", "qwen3:8b", ["e5"]),
+        repository=repository,
+        max_plies=2,
+        analysis_engine=analysis_engine,
+    )
+
+    result = runner.play()
+    turns = repository.list_turns(result.game_id)
+    analyses = repository.list_engine_analyses(result.game_id)
+
+    assert result.moves == ("e4", "e5")
+    assert turns[0]["prompt_kind"] == "engine_move"
+    assert turns[0]["prompt_version"] == "engine_anchor"
+    assert len(analyses) == 4
+    assert analyses[0]["ply"] == 1
+    assert analyses[0]["multipv_rank"] == 1
+    assert analyses[0]["pv_san"]

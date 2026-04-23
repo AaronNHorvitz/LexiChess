@@ -122,6 +122,62 @@ def rate_completed_game(
     )
 
 
+def rate_recorded_game(
+    repository: SQLiteRepository,
+    game_id: int,
+    *,
+    white_runtime: str | None = None,
+    black_runtime: str | None = None,
+    white_prompt_profile: str | None = None,
+    black_prompt_profile: str | None = None,
+    white_quantization: str | None = None,
+    black_quantization: str | None = None,
+    white_hardware_class: str | None = None,
+    black_hardware_class: str | None = None,
+    white_revision: str | None = None,
+    black_revision: str | None = None,
+) -> MatchRatingUpdate:
+    game = repository.get_game(game_id)
+    if game is None:
+        raise ValueError(f"Game {game_id} was not found.")
+
+    result = game.get("result")
+    if not isinstance(result, str) or result not in {"1-0", "0-1", "1/2-1/2"}:
+        raise ValueError(
+            f"Game {game_id} does not have a rateable result. "
+            "Expected one of 1-0, 0-1, or 1/2-1/2."
+        )
+
+    turns = repository.list_turns(game_id)
+    white_identity = identity_from_game(
+        game,
+        turns,
+        color="white",
+        runtime=white_runtime,
+        prompt_profile=white_prompt_profile,
+        quantization=white_quantization,
+        hardware_class=white_hardware_class,
+        revision=white_revision,
+    )
+    black_identity = identity_from_game(
+        game,
+        turns,
+        color="black",
+        runtime=black_runtime,
+        prompt_profile=black_prompt_profile,
+        quantization=black_quantization,
+        hardware_class=black_hardware_class,
+        revision=black_revision,
+    )
+    return rate_completed_game(
+        repository,
+        white=white_identity,
+        black=black_identity,
+        result=result,
+        source_game_id=game_id,
+    )
+
+
 def _infer_prompt_profile(
     turns: Sequence[Mapping[str, Any]],
     *,
