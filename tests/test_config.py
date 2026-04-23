@@ -76,8 +76,10 @@ def test_settings_export_redacts_secrets_by_default() -> None:
 def test_settings_include_runtime_retry_and_stockfish_configuration() -> None:
     settings = AppSettings.from_env(
         env={
+            "LEXICHESS_PROVIDER": "stockfish",
             "OLLAMA_RETRY_ATTEMPTS": "3",
             "OLLAMA_RETRY_BASE_DELAY_SECONDS": "0.5",
+            "STOCKFISH_PROFILE": "stockfish_club",
             "STOCKFISH_PATH": "/usr/bin/stockfish",
             "STOCKFISH_DEPTH": "14",
             "STOCKFISH_MULTIPV": "4",
@@ -88,6 +90,9 @@ def test_settings_include_runtime_retry_and_stockfish_configuration() -> None:
 
     assert settings.ollama.retry_attempts == 3
     assert settings.ollama.retry_base_delay_seconds == 0.5
+    assert settings.default_provider is ProviderName.STOCKFISH
+    assert settings.stockfish.profile == "stockfish_club"
+    assert settings.model_for("stockfish") == "stockfish_club"
     assert settings.stockfish.path == "/usr/bin/stockfish"
     assert settings.stockfish.depth == 14
     assert settings.stockfish.multipv == 4

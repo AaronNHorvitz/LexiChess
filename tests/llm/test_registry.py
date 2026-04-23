@@ -1,7 +1,7 @@
 import pytest
 
 from lexichess.config import AppSettings
-from lexichess.llm.providers import OllamaProvider
+from lexichess.llm.providers import OllamaProvider, StockfishMoveProvider
 from lexichess.llm.registry import build_provider
 
 
@@ -20,3 +20,18 @@ def test_registry_rejects_unknown_provider() -> None:
 
     with pytest.raises(ValueError, match="Unsupported provider"):
         build_provider("vllm", settings)
+
+
+def test_registry_builds_stockfish_provider() -> None:
+    settings = AppSettings.from_env(
+        env={
+            "LEXICHESS_PROVIDER": "stockfish",
+            "STOCKFISH_PROFILE": "stockfish_club",
+        },
+        dotenv_path=None,
+    )
+
+    provider = build_provider("stockfish", settings)
+
+    assert isinstance(provider, StockfishMoveProvider)
+    assert provider.model == "stockfish_club"

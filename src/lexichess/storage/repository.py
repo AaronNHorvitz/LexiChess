@@ -5,6 +5,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
+from lexichess.index.models import RatingSnapshot
 from lexichess.storage.schema import ensure_schema
 
 
@@ -241,6 +242,95 @@ class SQLiteRepository:
             ).fetchall()
         return [_plain_row(row) for row in rows]
 
+    def record_rating_snapshot(
+        self,
+        snapshot: RatingSnapshot,
+        *,
+        source_game_id: int | None = None,
+        source_result: str | None = None,
+    ) -> int:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO ratings (
+                    competitor_slug,
+                    provider,
+                    model,
+                    runtime,
+                    prompt_profile,
+                    quantization,
+                    hardware_class,
+                    revision,
+                    rating,
+                    games_played,
+                    provisional,
+                    source_game_id,
+                    source_result
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    snapshot.competitor.slug,
+                    snapshot.competitor.provider,
+                    snapshot.competitor.model,
+                    snapshot.competitor.runtime,
+                    snapshot.competitor.prompt_profile,
+                    snapshot.competitor.quantization,
+                    snapshot.competitor.hardware_class,
+                    snapshot.competitor.revision,
+                    snapshot.rating,
+                    snapshot.games_played,
+                    1 if snapshot.provisional else 0,
+                    source_game_id,
+                    source_result,
+                ),
+            )
+            connection.commit()
+            return _lastrowid(cursor)
+
+    def latest_rating_snapshot(self, competitor_slug: str) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM ratings
+                WHERE competitor_slug = ?
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                (competitor_slug,),
+            ).fetchone()
+        return _rating_row(row) if row else None
+
+    def list_rating_history(self, competitor_slug: str) -> list[dict[str, Any]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM ratings
+                WHERE competitor_slug = ?
+                ORDER BY id ASC
+                """,
+                (competitor_slug,),
+            ).fetchall()
+        return [_rating_row(row) for row in rows]
+
+    def list_latest_ratings(self, *, limit: int = 50) -> list[dict[str, Any]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT r.*
+                FROM ratings r
+                JOIN (
+                    SELECT competitor_slug, MAX(id) AS latest_id
+                    FROM ratings
+                    GROUP BY competitor_slug
+                ) latest
+                ON r.id = latest.latest_id
+                ORDER BY r.rating DESC, r.id DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [_rating_row(row) for row in rows]
+
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.database_path)
         connection.row_factory = sqlite3.Row
@@ -272,6 +362,12 @@ def _turn_row(row: sqlite3.Row) -> dict[str, Any]:
     payload = dict(row)
     payload["is_legal"] = bool(payload["is_legal"])
     payload["raw_response_json"] = _load_json(payload["raw_response_json"])
+    return payload
+
+
+def _rating_row(row: sqlite3.Row) -> dict[str, Any]:
+    payload = dict(row)
+    payload["provisional"] = bool(payload["provisional"])
     return payload
 
 

@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 
 class ProviderName(str, Enum):
     OLLAMA = "ollama"
+    STOCKFISH = "stockfish"
 
 
 class EnvironmentProfile(str, Enum):
@@ -81,6 +82,7 @@ class LoggingSettings:
 
 @dataclass(frozen=True, slots=True)
 class StockfishSettings:
+    profile: str = "stockfish_expert"
     path: str = "stockfish"
     depth: int = 12
     multipv: int = 3
@@ -218,6 +220,7 @@ class AppSettings:
                 api_key=_optional_str(raw.get("OLLAMA_API_KEY")),
             ),
             stockfish=StockfishSettings(
+                profile=raw.get("STOCKFISH_PROFILE", "stockfish_expert").strip(),
                 path=raw.get("STOCKFISH_PATH", "stockfish").strip(),
                 depth=_parse_int(raw.get("STOCKFISH_DEPTH"), 12),
                 multipv=_parse_int(raw.get("STOCKFISH_MULTIPV"), 3),
@@ -229,6 +232,8 @@ class AppSettings:
         provider_name = ProviderName(str(provider).lower())
         if provider_name is ProviderName.OLLAMA:
             return self.ollama.model
+        if provider_name is ProviderName.STOCKFISH:
+            return self.stockfish.profile
         raise ValueError(f"Unsupported provider: {provider}")
 
     def to_dict(self, *, redact_secrets: bool | None = None) -> dict[str, Any]:
@@ -279,6 +284,7 @@ class AppSettings:
                 "api_key": _redacted_value(self.ollama.api_key, redact=redact),
             },
             "stockfish": {
+                "profile": self.stockfish.profile,
                 "path": self.stockfish.path,
                 "depth": self.stockfish.depth,
                 "multipv": self.stockfish.multipv,

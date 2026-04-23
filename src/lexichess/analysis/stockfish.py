@@ -6,6 +6,7 @@ from typing import Any, Callable, Mapping
 import chess
 import chess.engine
 
+
 @dataclass(frozen=True, slots=True)
 class EngineAnalysis:
     multipv_rank: int

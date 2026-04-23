@@ -13,6 +13,8 @@ from lexichess.index import (
     RatingSnapshot,
     apply_elo_result,
     default_engine_anchors,
+    identity_from_game,
+    rate_completed_game,
 )
 from lexichess.llm.registry import build_provider
 from lexichess.storage.repository import SQLiteRepository
@@ -132,6 +134,43 @@ def build_parser() -> argparse.ArgumentParser:
     )
     anchors_parser.add_argument("--json", action="store_true")
 
+    list_ratings_parser = subparsers.add_parser(
+        "list-ratings", help="List the latest stored rating snapshots."
+    )
+    list_ratings_parser.add_argument(
+        "--db-path", help="Override the SQLite database path."
+    )
+    list_ratings_parser.add_argument("--limit", type=int, default=50)
+    list_ratings_parser.add_argument("--json", action="store_true")
+
+    rating_history_parser = subparsers.add_parser(
+        "rating-history", help="Show stored rating history for one competitor slug."
+    )
+    rating_history_parser.add_argument("competitor_slug")
+    rating_history_parser.add_argument(
+        "--db-path", help="Override the SQLite database path."
+    )
+    rating_history_parser.add_argument("--json", action="store_true")
+
+    rate_game_parser = subparsers.add_parser(
+        "rate-game", help="Record Elo snapshots for a completed game."
+    )
+    rate_game_parser.add_argument("game_id", type=int)
+    rate_game_parser.add_argument(
+        "--db-path", help="Override the SQLite database path."
+    )
+    rate_game_parser.add_argument("--white-runtime")
+    rate_game_parser.add_argument("--black-runtime")
+    rate_game_parser.add_argument("--white-prompt-profile")
+    rate_game_parser.add_argument("--black-prompt-profile")
+    rate_game_parser.add_argument("--white-quantization")
+    rate_game_parser.add_argument("--black-quantization")
+    rate_game_parser.add_argument("--white-hardware-class")
+    rate_game_parser.add_argument("--black-hardware-class")
+    rate_game_parser.add_argument("--white-revision")
+    rate_game_parser.add_argument("--black-revision")
+    rate_game_parser.add_argument("--json", action="store_true")
+
     elo_parser = subparsers.add_parser(
         "elo-preview", help="Preview an Elo update for two ratings."
     )
@@ -178,6 +217,15 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "list-anchors":
         return _run_list_anchors(args)
+
+    if args.command == "list-ratings":
+        return _run_list_ratings(args, settings)
+
+    if args.command == "rating-history":
+        return _run_rating_history(args, settings)
+
+    if args.command == "rate-game":
+        return _run_rate_game(args, settings)
 
     if args.command == "elo-preview":
         return _run_elo_preview(args)
@@ -372,6 +420,105 @@ def _run_list_anchors(args: argparse.Namespace) -> int:
                 f"runtime={anchor.identity.runtime} "
                 f"slug={anchor.identity.slug}"
             )
+    return 0
+
+
+def _run_list_ratings(args: argparse.Namespace, settings: AppSettings) -> int:
+    repository = _build_repository(args, settings)
+    ratings = repository.list_latest_ratings(limit=args.limit)
+    if args.json:
+        print(json.dumps(ratings, indent=2))
+        return 0
+
+    if not ratings:
+        print("No ratings recorded.")
+        return 0
+
+    for row in ratings:
+        print(
+            f"{row['competitor_slug']} rating={row['rating']:.1f} "
+            f"games={row['games_played']} provisional={row['provisional']}"
+        )
+    return 0
+
+
+def _run_rating_history(args: argparse.Namespace, settings: AppSettings) -> int:
+    repository = _build_repository(args, settings)
+    history = repository.list_rating_history(args.competitor_slug)
+    if args.json:
+        print(json.dumps(history, indent=2))
+        return 0
+
+    if not history:
+        print("No rating history recorded.")
+        return 0
+
+    for row in history:
+        print(
+            f"#{row['id']} rating={row['rating']:.1f} games={row['games_played']} "
+            f"result={row['source_result'] or '-'} game_id={row['source_game_id'] or '-'}"
+        )
+    return 0
+
+
+def _run_rate_game(args: argparse.Namespace, settings: AppSettings) -> int:
+    repository = _build_repository(args, settings)
+    game = _require_game(repository, args.game_id)
+    turns = repository.list_turns(args.game_id)
+    result = game.get("result")
+    if not isinstance(result, str) or result not in {"1-0", "0-1", "1/2-1/2"}:
+        raise SystemExit(
+            f"Game {args.game_id} does not have a rateable result. "
+            "Expected one of 1-0, 0-1, or 1/2-1/2."
+        )
+
+    white_identity = identity_from_game(
+        game,
+        turns,
+        color="white",
+        runtime=args.white_runtime,
+        prompt_profile=args.white_prompt_profile,
+        quantization=args.white_quantization,
+        hardware_class=args.white_hardware_class,
+        revision=args.white_revision,
+    )
+    black_identity = identity_from_game(
+        game,
+        turns,
+        color="black",
+        runtime=args.black_runtime,
+        prompt_profile=args.black_prompt_profile,
+        quantization=args.black_quantization,
+        hardware_class=args.black_hardware_class,
+        revision=args.black_revision,
+    )
+
+    update = rate_completed_game(
+        repository,
+        white=white_identity,
+        black=black_identity,
+        result=result,
+        source_game_id=args.game_id,
+    )
+    payload = {
+        "game_id": args.game_id,
+        "result": result,
+        "white": {
+            "slug": update.white_after.competitor.slug,
+            "before": update.white_before.rating,
+            "after": update.white_after.rating,
+            "games_played": update.white_after.games_played,
+            "provisional": update.white_after.provisional,
+        },
+        "black": {
+            "slug": update.black_after.competitor.slug,
+            "before": update.black_before.rating,
+            "after": update.black_after.rating,
+            "games_played": update.black_after.games_played,
+            "provisional": update.black_after.provisional,
+        },
+    }
+    print(json.dumps(payload, indent=2))
     return 0
 
 

@@ -71,12 +71,38 @@ HALLUCINATIONS_GAME_INDEX_SQL = """
 CREATE INDEX IF NOT EXISTS idx_hallucinations_game_id ON hallucinations(game_id);
 """
 
+RATINGS_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS ratings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    competitor_slug TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    model TEXT NOT NULL,
+    runtime TEXT NOT NULL,
+    prompt_profile TEXT NOT NULL,
+    quantization TEXT,
+    hardware_class TEXT,
+    revision TEXT,
+    rating REAL NOT NULL,
+    games_played INTEGER NOT NULL,
+    provisional INTEGER NOT NULL,
+    source_game_id INTEGER REFERENCES games(id) ON DELETE SET NULL,
+    source_result TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+RATINGS_SLUG_INDEX_SQL = """
+CREATE INDEX IF NOT EXISTS idx_ratings_competitor_slug ON ratings(competitor_slug, id DESC);
+"""
+
 BASE_SCHEMA_STATEMENTS = (
     GAME_TABLE_SQL,
     TURN_TABLE_SQL,
     HALLUCINATION_TABLE_SQL,
+    RATINGS_TABLE_SQL,
     TURNS_GAME_INDEX_SQL,
     HALLUCINATIONS_GAME_INDEX_SQL,
+    RATINGS_SLUG_INDEX_SQL,
 )
 
 TURN_MIGRATION_COLUMNS = {

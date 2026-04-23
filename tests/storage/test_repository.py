@@ -3,6 +3,7 @@ from __future__ import annotations
 import chess
 from pathlib import Path
 
+from lexichess.index.models import CompetitorIdentity, RatingSnapshot
 from lexichess.storage import SQLiteRepository
 
 
@@ -69,3 +70,29 @@ def test_repository_initializes_and_logs_game_data(tmp_path: Path) -> None:
     assert turns[0]["raw_response_json"] == {"response": "e4"}
     assert len(hallucinations) == 1
     assert hallucinations[0]["reason"] == "no_candidate_found"
+
+
+def test_repository_persists_rating_history(tmp_path: Path) -> None:
+    repository = SQLiteRepository(tmp_path / "ratings.db")
+    repository.initialize()
+
+    competitor = CompetitorIdentity(
+        provider="stockfish",
+        model="stockfish_club",
+        runtime="stockfish",
+        prompt_profile="engine_anchor",
+    )
+    snapshot_one = RatingSnapshot(competitor=competitor, rating=1400.0, games_played=0)
+    snapshot_two = RatingSnapshot(competitor=competitor, rating=1412.5, games_played=1)
+
+    repository.record_rating_snapshot(snapshot_one, source_result="1-0")
+    repository.record_rating_snapshot(snapshot_two, source_result="1-0")
+
+    latest = repository.latest_rating_snapshot(competitor.slug)
+    history = repository.list_rating_history(competitor.slug)
+    listed = repository.list_latest_ratings()
+
+    assert latest is not None
+    assert latest["rating"] == 1412.5
+    assert len(history) == 2
+    assert listed[0]["competitor_slug"] == competitor.slug

@@ -362,14 +362,14 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [ ] 6.29 Add referee-model deployment preset
 - [ ] 6.30 Add optional `Gemma` player deployment preset
 
-## [ ] Sprint 7: Stockfish, Ratings & Chess Index Core (8/26 done)
+## [ ] Sprint 7: Stockfish, Ratings & Chess Index Core (11/26 done)
 
 ### [ ] 7. Stockfish, Ratings & Chess Index Core
 
 - [ ] 7.1 Add Stockfish binary discovery
 - [x] 7.2 Add Stockfish engine configuration options
-- [ ] 7.3 Add engine move adapter
-- [ ] 7.4 Add engine-vs-model match mode
+- [x] 7.3 Add engine move adapter
+- [x] 7.4 Add engine-vs-model match mode
 - [ ] 7.5 Add centipawn evaluation logging
 - [x] 7.6 Add best-line annotations
 - [x] 7.7 Add MultiPV analysis mode
@@ -386,7 +386,7 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [x] 7.18 Add provisional rating rules
 - [x] 7.19 Add competitor identity schema
 - [x] 7.20 Add rating update service
-- [ ] 7.21 Add rating snapshot history
+- [x] 7.21 Add rating snapshot history
 - [ ] 7.22 Add public `Chess Index` generation logic
 - [ ] 7.23 Add rating export format
 - [x] 7.24 Add rating tests
@@ -422,7 +422,7 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [ ] 8.23 Add intake audit log
 - [ ] 8.24 Add model intake tests
 
-## [ ] Sprint 9: Data Schema, Migrations & Replay Persistence (13/35 done)
+## [ ] Sprint 9: Data Schema, Migrations & Replay Persistence (14/35 done)
 
 ### [ ] 9. Data Schema, Migrations & Replay Persistence
 
@@ -447,7 +447,7 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [ ] 9.8 Add `referee_events` table
 - [ ] 9.9 Add `banter_events` table
 - [ ] 9.10 Add `engine_analyses` table
-- [ ] 9.11 Add `ratings` table
+- [x] 9.11 Add `ratings` table
 - [ ] 9.12 Add `model_catalog` table
 - [ ] 9.13 Add `personality_catalog` table
 - [ ] 9.14 Add `voice_catalog` table

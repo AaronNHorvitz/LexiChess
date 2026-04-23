@@ -41,3 +41,6 @@ class AnchorCompetitor:
     identity: CompetitorIdentity
     starting_rating: float
     description: str
+    depth: int
+    multipv: int = 1
+    movetime_ms: int | None = None

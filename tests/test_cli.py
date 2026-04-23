@@ -82,19 +82,31 @@ def test_cli_can_list_inspect_replay_and_export_games(
         termination_reason="manual_test",
     )
 
-    assert main(["list-games", "--db-path", str(repository.database_path), "--json"]) == 0
+    assert (
+        main(["list-games", "--db-path", str(repository.database_path), "--json"]) == 0
+    )
     listed = json.loads(capsys.readouterr().out)
     assert listed[0]["id"] == game_id
 
     assert (
-        main(["inspect-game", str(game_id), "--db-path", str(repository.database_path), "--json"])
+        main(
+            [
+                "inspect-game",
+                str(game_id),
+                "--db-path",
+                str(repository.database_path),
+                "--json",
+            ]
+        )
         == 0
     )
     inspected = json.loads(capsys.readouterr().out)
     assert inspected["game"]["id"] == game_id
     assert inspected["moves"] == ["e4"]
 
-    assert main(["replay", str(game_id), "--db-path", str(repository.database_path)]) == 0
+    assert (
+        main(["replay", str(game_id), "--db-path", str(repository.database_path)]) == 0
+    )
     replay_output = capsys.readouterr().out
     assert "1. e4" in replay_output
 
@@ -141,3 +153,77 @@ def test_cli_lists_engine_anchors_and_previews_elo(
     )
     payload = json.loads(capsys.readouterr().out)
     assert payload["new_rating"] > 1500
+
+
+def test_cli_can_rate_game_and_list_rating_history(
+    tmp_path: Path, capsys: CaptureFixture[str]
+) -> None:
+    repository = SQLiteRepository(tmp_path / "ratings_cli.db")
+    repository.initialize()
+    game_id = repository.create_game(
+        white_provider="stockfish",
+        white_model="stockfish_club",
+        black_provider="ollama",
+        black_model="qwen3:8b",
+        initial_fen=chess.STARTING_FEN,
+        status="completed",
+    )
+    repository.log_turn(
+        game_id=game_id,
+        ply=1,
+        attempt=1,
+        color="white",
+        provider="stockfish",
+        model="stockfish_club",
+        prompt_kind="engine_move",
+        prompt_version="engine_anchor",
+        prompt="engine",
+        instructions="engine",
+        raw_response_text="e4",
+        raw_response_json={"best_move_san": "e4"},
+        candidate_move="e4",
+        parsed_move_san="e4",
+        parsed_move_uci="e2e4",
+        fen_before=chess.STARTING_FEN,
+        fen_after="rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
+        is_legal=True,
+        latency_ms=1,
+        error=None,
+    )
+    repository.finish_game(
+        game_id,
+        status="completed",
+        result="1-0",
+        termination_reason="checkmate",
+    )
+
+    assert (
+        main(["rate-game", str(game_id), "--db-path", str(repository.database_path)])
+        == 0
+    )
+    rated = json.loads(capsys.readouterr().out)
+    assert rated["white"]["slug"].startswith("stockfish:stockfish_club")
+    assert rated["black"]["after"] != rated["black"]["before"]
+
+    assert (
+        main(["list-ratings", "--db-path", str(repository.database_path), "--json"])
+        == 0
+    )
+    listed = json.loads(capsys.readouterr().out)
+    assert len(listed) == 2
+
+    slug = rated["white"]["slug"]
+    assert (
+        main(
+            [
+                "rating-history",
+                slug,
+                "--db-path",
+                str(repository.database_path),
+                "--json",
+            ]
+        )
+        == 0
+    )
+    history = json.loads(capsys.readouterr().out)
+    assert len(history) == 1
