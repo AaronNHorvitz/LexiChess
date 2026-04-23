@@ -524,19 +524,19 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [ ] 11.29 Evaluate `Cloud Run GPU` fit for bursty referee workloads
 - [ ] 11.30 Add infrastructure-as-code modules
 
-## [ ] Sprint 12: Website Backend API Foundation (0/26 done)
+## [ ] Sprint 12: Website Backend API Foundation (10/26 done)
 
 ### [ ] 12. Website Backend API Foundation
 
-- [ ] 12.1 Choose API framework
-- [ ] 12.2 Scaffold API application package
-- [ ] 12.3 Add health endpoint
-- [ ] 12.4 Add version endpoint
+- [x] 12.1 Choose API framework
+- [x] 12.2 Scaffold API application package
+- [x] 12.3 Add health endpoint
+- [x] 12.4 Add version endpoint
 - [ ] 12.5 Add current-user endpoint
 - [ ] 12.6 Add game creation endpoint
-- [ ] 12.7 Add game detail endpoint
-- [ ] 12.8 Add game list endpoint
-- [ ] 12.9 Add replay endpoint
+- [x] 12.7 Add game detail endpoint
+- [x] 12.8 Add game list endpoint
+- [x] 12.9 Add replay endpoint
 - [ ] 12.10 Add live game event stream endpoint
 - [ ] 12.11 Add live referee stream endpoint
 - [ ] 12.12 Add player banter stream endpoint
@@ -546,13 +546,13 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [ ] 12.16 Add user-to-player chat endpoint
 - [ ] 12.17 Add showmatch transcript endpoint
 - [ ] 12.18 Add recording manifest endpoint
-- [ ] 12.19 Add leaderboard endpoint
+- [x] 12.19 Add leaderboard endpoint
 - [ ] 12.20 Add model catalog endpoint
 - [ ] 12.21 Add personality catalog endpoint
 - [ ] 12.22 Add saved replay library endpoint
 - [ ] 12.23 Add saved clip library endpoint
-- [ ] 12.24 Add OpenAPI schema
-- [ ] 12.25 Add API integration tests
+- [x] 12.24 Add OpenAPI schema
+- [x] 12.25 Add API integration tests
 - [ ] 12.26 Add auth middleware and request guards
 
 ## [ ] Sprint 13: Accounts, Auth, Billing & Entitlements (0/30 done)
@@ -590,25 +590,25 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [ ] 13.29 Add subscription tests
 - [ ] 13.30 Add auth security tests
 
-## [ ] Sprint 14: Frontend Foundation & Design System (0/22 done)
+## [ ] Sprint 14: Frontend Foundation & Design System (7/22 done)
 
 ### [ ] 14. Frontend Foundation & Design System
 
-- [ ] 14.1 Choose frontend stack
-- [ ] 14.2 Scaffold frontend application
-- [ ] 14.3 Add design tokens
+- [x] 14.1 Choose frontend stack
+- [x] 14.2 Scaffold frontend application
+- [x] 14.3 Add design tokens
 - [ ] 14.4 Add brand theme system
-- [ ] 14.5 Add application shell
-- [ ] 14.6 Add routing
+- [x] 14.5 Add application shell
+- [x] 14.6 Add routing
 - [ ] 14.7 Add auth state handling
 - [ ] 14.8 Add protected-route guards
 - [ ] 14.9 Add API client layer
 - [ ] 14.10 Add realtime transport layer
 - [ ] 14.11 Add component library foundation
 - [ ] 14.12 Add loading states
-- [ ] 14.13 Add empty states
+- [x] 14.13 Add empty states
 - [ ] 14.14 Add error states
-- [ ] 14.15 Add responsive navigation
+- [x] 14.15 Add responsive navigation
 - [ ] 14.16 Add accessibility baseline
 - [ ] 14.17 Add frontend testing harness
 - [ ] 14.18 Add performance budget
@@ -751,19 +751,19 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [ ] 18.27 Add showmatch analytics dashboard
 - [ ] 18.28 Add showmatch QA checklist
 
-## [ ] Sprint 19: Public Chess Index, Community & Discovery (0/24 done)
+## [ ] Sprint 19: Public Chess Index, Community & Discovery (3/24 done)
 
 ### [ ] 19. Public Chess Index, Community & Discovery
 
-- [ ] 19.1 Build public leaderboard page
+- [x] 19.1 Build public leaderboard page
 - [ ] 19.2 Build model profile page
 - [ ] 19.3 Build competitor configuration disclosure surface
 - [ ] 19.4 Build license disclosure surface
 - [ ] 19.5 Build rating history chart
 - [ ] 19.6 Build compare-two-models page
 - [ ] 19.7 Build benchmark report page
-- [ ] 19.8 Build tournament watch page
-- [ ] 19.9 Build public replay page
+- [x] 19.8 Build tournament watch page
+- [x] 19.9 Build public replay page
 - [ ] 19.10 Build share-link system
 - [ ] 19.11 Build highlights and clips page
 - [ ] 19.12 Build rivalry page

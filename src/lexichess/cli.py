@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Sequence
@@ -37,6 +38,7 @@ from lexichess.tournament.export import (
     render_tournament_markdown,
 )
 from lexichess.tournament.runner import GameRunner
+from lexichess.web import create_app
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -49,6 +51,15 @@ def build_parser() -> argparse.ArgumentParser:
     settings_parser.add_argument(
         "--json", action="store_true", help="Print the resolved settings as JSON."
     )
+
+    serve_web_parser = subparsers.add_parser(
+        "serve-web",
+        help="Run the read-only web UI and API locally.",
+    )
+    serve_web_parser.add_argument("--host", default="127.0.0.1")
+    serve_web_parser.add_argument("--port", type=int, default=8000)
+    serve_web_parser.add_argument("--db-path")
+    serve_web_parser.add_argument("--reload", action="store_true")
 
     play_parser = subparsers.add_parser(
         "play", help="Run a single game between two configured local model backends."
@@ -375,6 +386,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "settings":
         return _run_settings(args, settings)
 
+    if args.command == "serve-web":
+        return _run_serve_web(args, settings)
+
     if args.command == "play":
         return _run_play(args, settings)
 
@@ -491,6 +505,25 @@ def _run_settings(args: argparse.Namespace, settings: AppSettings) -> int:
         print(json.dumps(payload, indent=2))
     else:
         print(json.dumps(payload, indent=2))
+    return 0
+
+
+def _run_serve_web(args: argparse.Namespace, settings: AppSettings) -> int:
+    import uvicorn
+
+    resolved_settings = settings
+    if args.db_path:
+        env = dict(os.environ)
+        env["LEXICHESS_DB_PATH"] = args.db_path
+        resolved_settings = AppSettings.from_env(env=env)
+
+    app = create_app(resolved_settings)
+    uvicorn.run(
+        app,
+        host=args.host,
+        port=args.port,
+        reload=args.reload,
+    )
     return 0
 
 

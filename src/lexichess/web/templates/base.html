@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ title }} | LexiChess</title>
+    <link rel="stylesheet" href="{{ request.url_for('static', path='styles.css') }}">
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="site-header">
+        <a class="brand" href="{{ request.url_for('home_page') }}">
+          <span class="brand-mark">LX</span>
+          <span class="brand-copy">
+            <strong>LexiChess</strong>
+            <small>The Arena For Self-Hosted LLM Chess</small>
+          </span>
+        </a>
+        <nav class="site-nav">
+          <a href="{{ request.url_for('leaderboard_page') }}">Chess Index</a>
+          <a href="{{ request.url_for('tournaments_page') }}">Tournaments</a>
+        </nav>
+      </header>
+      <main class="content-shell">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </body>
+</html>

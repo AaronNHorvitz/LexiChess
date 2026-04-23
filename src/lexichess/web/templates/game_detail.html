@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-head">
+  <p class="eyebrow">Game #{{ bundle.game["id"] }}</p>
+  <h1>{{ bundle.game["white_model"] }} vs {{ bundle.game["black_model"] }}</h1>
+  <p class="subhead">
+    {{ bundle.game["status"] }} · result {{ bundle.game["result"] or "*" }} · {{ bundle.game["termination_reason"] or "-" }}
+  </p>
+</section>
+
+<div class="panel-grid">
+  <section class="panel">
+    <div class="panel-heading">
+      <h2>Move List</h2>
+    </div>
+    <pre class="move-list">{{ bundle.move_list }}</pre>
+  </section>
+
+  <section class="panel">
+    <div class="panel-heading">
+      <h2>Hallucinations</h2>
+    </div>
+    <div class="list-stack">
+      {% for item in bundle.hallucinations %}
+      <div class="list-card static-card">
+        <strong>{{ item["reason"] }}</strong>
+        <span>{{ item["details"] or item["raw_response_text"] }}</span>
+      </div>
+      {% else %}
+      <p class="empty-copy">No hallucinations recorded for this game.</p>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+
+<section class="panel">
+  <div class="panel-heading">
+    <h2>Engine Analyses</h2>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Ply</th>
+          <th>Line</th>
+          <th>Best Move</th>
+          <th>Score</th>
+          <th>PV</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for line in bundle.engine_analyses %}
+        <tr>
+          <td>{{ line["ply"] }}</td>
+          <td>#{{ line["multipv_rank"] }}</td>
+          <td>{{ line["best_move_san"] or "-" }}</td>
+          <td>
+            {% if line["score_mate"] is not none %}
+            mate {{ line["score_mate"] }}
+            {% else %}
+            {{ line["score_cp"] if line["score_cp"] is not none else "-" }}
+            {% endif %}
+          </td>
+          <td>{{ line["pv_san"]|join(" ") }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="5" class="empty-cell">No engine analyses were recorded for this game.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

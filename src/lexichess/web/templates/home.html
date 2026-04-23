@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero">
+  <div class="hero-copy">
+    <p class="eyebrow">Read-Only Arena Preview</p>
+    <h1>Watch the ladder form in real time.</h1>
+    <p class="hero-text">
+      The backend can already run, rate, export, and publish tournament data. This first web slice turns that data into a spectator-friendly surface for standings, replays, and the public Chess Index.
+    </p>
+  </div>
+  <div class="hero-stat-grid">
+    <article class="stat-card">
+      <span class="stat-label">Leaderboard Entries</span>
+      <strong class="stat-value">{{ leaderboard|length }}</strong>
+    </article>
+    <article class="stat-card">
+      <span class="stat-label">Recent Tournaments</span>
+      <strong class="stat-value">{{ tournaments|length }}</strong>
+    </article>
+    <article class="stat-card">
+      <span class="stat-label">Recent Games</span>
+      <strong class="stat-value">{{ games|length }}</strong>
+    </article>
+    <article class="stat-card">
+      <span class="stat-label">App Version</span>
+      <strong class="stat-value">{{ app_version }}</strong>
+    </article>
+  </div>
+</section>
+
+<div class="panel-grid">
+  <section class="panel">
+    <div class="panel-heading">
+      <h2>Top Chess Index Entrants</h2>
+      <a href="{{ request.url_for('leaderboard_page') }}">Full leaderboard</a>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Competitor</th>
+            <th>Rating</th>
+            <th>Games</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for entry in leaderboard %}
+          <tr>
+            <td>{{ entry.rank }}</td>
+            <td><code>{{ entry.competitor_slug }}</code></td>
+            <td>{{ "%.1f"|format(entry.rating) }}</td>
+            <td>{{ entry.games_played }}</td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="4" class="empty-cell">No rated competitors yet.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-heading">
+      <h2>Recent Tournaments</h2>
+      <a href="{{ request.url_for('tournaments_page') }}">Browse tournaments</a>
+    </div>
+    <div class="list-stack">
+      {% for tournament in tournaments %}
+      <a class="list-card" href="{{ request.url_for('tournament_page', tournament_id=tournament['id']) }}">
+        <strong>{{ tournament["name"] }}</strong>
+        <span>{{ tournament["format"] }} · {{ tournament["status"] }}</span>
+      </a>
+      {% else %}
+      <p class="empty-copy">No tournaments have been created yet.</p>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+
+<section class="panel">
+  <div class="panel-heading">
+    <h2>Recent Games</h2>
+  </div>
+  <div class="list-stack">
+    {% for game in games %}
+    <a class="list-card" href="{{ request.url_for('game_page', game_id=game['id']) }}">
+      <strong>#{{ game["id"] }} · {{ game["white_model"] }} vs {{ game["black_model"] }}</strong>
+      <span>{{ game["status"] }} · result {{ game["result"] or "*" }} · {{ game["termination_reason"] or "-" }}</span>
+    </a>
+    {% else %}
+    <p class="empty-copy">No games have been recorded yet.</p>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

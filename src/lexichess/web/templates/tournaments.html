@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-head">
+  <p class="eyebrow">Tournament Desk</p>
+  <h1>Persistent tournament runs</h1>
+  <p class="subhead">Read-only standings, pairings, and completed event snapshots.</p>
+</section>
+
+<section class="panel">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Format</th>
+          <th>Status</th>
+          <th>Created</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for tournament in tournaments %}
+        <tr>
+          <td>{{ tournament["id"] }}</td>
+          <td>
+            <a href="{{ request.url_for('tournament_page', tournament_id=tournament['id']) }}">
+              {{ tournament["name"] }}
+            </a>
+          </td>
+          <td>{{ tournament["format"] }}</td>
+          <td>{{ tournament["status"] }}</td>
+          <td>{{ tournament["created_at"] }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="5" class="empty-cell">No tournaments have been created yet.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

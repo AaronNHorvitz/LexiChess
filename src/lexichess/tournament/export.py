@@ -49,10 +49,16 @@ def build_tournament_export(
         )
         source_game_ids.append(game_id)
 
-    completed_pairings = [pairing for pairing in pairings if pairing["status"] == "completed"]
+    completed_pairings = [
+        pairing for pairing in pairings if pairing["status"] == "completed"
+    ]
     failed_pairings = [pairing for pairing in pairings if pairing["status"] == "failed"]
-    pending_pairings = [pairing for pairing in pairings if pairing["status"] == "pending"]
-    running_pairings = [pairing for pairing in pairings if pairing["status"] == "running"]
+    pending_pairings = [
+        pairing for pairing in pairings if pairing["status"] == "pending"
+    ]
+    running_pairings = [
+        pairing for pairing in pairings if pairing["status"] == "running"
+    ]
 
     manifest = {
         "generated_at": datetime.now(timezone.utc).isoformat(),

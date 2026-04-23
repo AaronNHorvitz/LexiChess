@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-head">
+  <p class="eyebrow">Public Chess Index</p>
+  <h1>Current ladder snapshot</h1>
+  <p class="subhead">
+    Generated at {{ snapshot.generated_at }} with {{ snapshot.included_competitors }} included competitors.
+  </p>
+</section>
+
+<section class="panel">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>Competitor</th>
+          <th>Rating</th>
+          <th>Games</th>
+          <th>W-D-L</th>
+          <th>Provisional</th>
+          <th>Last Result</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for entry in snapshot.entries %}
+        <tr>
+          <td>{{ entry.rank }}</td>
+          <td>
+            <code>{{ entry.competitor_slug }}</code>
+            <div class="muted">{{ entry.provider }} · {{ entry.runtime }}</div>
+          </td>
+          <td>{{ "%.1f"|format(entry.rating) }}</td>
+          <td>{{ entry.games_played }}</td>
+          <td>{{ entry.wins }}-{{ entry.draws }}-{{ entry.losses }}</td>
+          <td>{{ "yes" if entry.provisional else "no" }}</td>
+          <td>{{ entry.last_result or "-" }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" class="empty-cell">No leaderboard entries available yet.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

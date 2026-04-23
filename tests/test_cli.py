@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
 
 import chess
 from _pytest.capture import CaptureFixture
@@ -41,6 +44,42 @@ def test_settings_command_redacts_secret_api_key(
     payload = json.loads(captured.out)
     assert exit_code == 0
     assert payload["ollama"]["api_key"] == "***REDACTED***"
+
+
+def test_serve_web_command_starts_uvicorn_with_resolved_settings(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    captured: dict[str, Any] = {}
+
+    def fake_run(app: Any, *, host: str, port: int, reload: bool) -> None:
+        captured["app"] = app
+        captured["host"] = host
+        captured["port"] = port
+        captured["reload"] = reload
+
+    monkeypatch.setitem(sys.modules, "uvicorn", SimpleNamespace(run=fake_run))
+
+    database_path = tmp_path / "serve_web.db"
+    exit_code = main(
+        [
+            "serve-web",
+            "--host",
+            "0.0.0.0",
+            "--port",
+            "8123",
+            "--db-path",
+            str(database_path),
+            "--reload",
+        ]
+    )
+
+    assert exit_code == 0
+    assert captured["host"] == "0.0.0.0"
+    assert captured["port"] == 8123
+    assert captured["reload"] is True
+    app = captured["app"]
+    assert getattr(app.state.settings, "database_path") == database_path
 
 
 def test_cli_can_list_inspect_replay_and_export_games(

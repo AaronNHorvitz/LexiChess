@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-head">
+  <p class="eyebrow">{{ bundle.tournament["format"] }}</p>
+  <h1>{{ bundle.tournament["name"] }}</h1>
+  <p class="subhead">Status: {{ bundle.tournament["status"] }}</p>
+</section>
+
+<div class="panel-grid">
+  <section class="panel">
+    <div class="panel-heading">
+      <h2>Standings</h2>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Player</th>
+            <th>Points</th>
+            <th>W-D-L</th>
+            <th>Games</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in bundle.standings %}
+          <tr>
+            <td>{{ row["rank"] }}</td>
+            <td>{{ row["label"] }}</td>
+            <td>{{ "%.1f"|format(row["points"]) }}</td>
+            <td>{{ row["wins"] }}-{{ row["draws"] }}-{{ row["losses"] }}</td>
+            <td>{{ row["games_played"] }}</td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="5" class="empty-cell">No completed pairings yet.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-heading">
+      <h2>Roster</h2>
+    </div>
+    <div class="list-stack">
+      {% for player in bundle.players %}
+      <div class="list-card static-card">
+        <strong>{{ player["label"] }}</strong>
+        <span>Seed {{ player["seed"] or "-" }}</span>
+      </div>
+      {% else %}
+      <p class="empty-copy">No players recorded.</p>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+
+<section class="panel">
+  <div class="panel-heading">
+    <h2>Pairings</h2>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Match</th>
+          <th>Round</th>
+          <th>White</th>
+          <th>Black</th>
+          <th>Status</th>
+          <th>Result</th>
+          <th>Game</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for pairing in bundle.pairings %}
+        <tr>
+          <td>{{ pairing["match_number"] }}</td>
+          <td>{{ pairing["round_number"] }}</td>
+          <td>{{ pairing["white_label"] }}</td>
+          <td>{{ pairing["black_label"] }}</td>
+          <td>{{ pairing["status"] }}</td>
+          <td>{{ pairing["result"] or "-" }}</td>
+          <td>
+            {% if pairing["game_id"] %}
+            <a href="{{ request.url_for('game_page', game_id=pairing['game_id']) }}">#{{ pairing["game_id"] }}</a>
+            {% else %}
+            -
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" class="empty-cell">No pairings recorded.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
