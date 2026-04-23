@@ -73,4 +73,43 @@
     </table>
   </div>
 </section>
+
+<div class="panel-grid">
+  <section class="panel">
+    <div class="panel-heading">
+      <h2>Seat State</h2>
+    </div>
+    <div class="list-stack">
+      {% for seat in bundle.seats %}
+      <div class="list-card static-card">
+        <strong>{{ seat["color"]|title }} · {{ seat["controller"] }}</strong>
+        <span>
+          {{ seat["display_name"] or "-" }}
+          {% if seat["claimed_by"] %}
+          · claimed by {{ seat["claimed_by"] }}
+          {% endif %}
+        </span>
+      </div>
+      {% else %}
+      <p class="empty-copy">No seat state has been recorded for this game.</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-heading">
+      <h2>Recent Activity</h2>
+    </div>
+    <div class="list-stack">
+      {% for event in bundle.events %}
+      <div class="list-card static-card">
+        <strong>{{ event["event_type"] }}</strong>
+        <span>{{ event["created_at"] }} · {{ event["payload_json"] }}</span>
+      </div>
+      {% else %}
+      <p class="empty-copy">No interactive events recorded yet.</p>
+      {% endfor %}
+    </div>
+  </section>
+</div>
 {% endblock %}

@@ -524,7 +524,7 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [ ] 11.29 Evaluate `Cloud Run GPU` fit for bursty referee workloads
 - [ ] 11.30 Add infrastructure-as-code modules
 
-## [ ] Sprint 12: Website Backend API Foundation (10/26 done)
+## [ ] Sprint 12: Website Backend API Foundation (15/26 done)
 
 ### [ ] 12. Website Backend API Foundation
 
@@ -533,17 +533,17 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [x] 12.3 Add health endpoint
 - [x] 12.4 Add version endpoint
 - [ ] 12.5 Add current-user endpoint
-- [ ] 12.6 Add game creation endpoint
+- [x] 12.6 Add game creation endpoint
 - [x] 12.7 Add game detail endpoint
 - [x] 12.8 Add game list endpoint
 - [x] 12.9 Add replay endpoint
-- [ ] 12.10 Add live game event stream endpoint
+- [x] 12.10 Add live game event stream endpoint
 - [ ] 12.11 Add live referee stream endpoint
 - [ ] 12.12 Add player banter stream endpoint
 - [ ] 12.13 Add engine lookahead endpoint
-- [ ] 12.14 Add seat-claim endpoint
-- [ ] 12.15 Add seat-release-to-LLM endpoint
-- [ ] 12.16 Add user-to-player chat endpoint
+- [x] 12.14 Add seat-claim endpoint
+- [x] 12.15 Add seat-release-to-LLM endpoint
+- [x] 12.16 Add user-to-player chat endpoint
 - [ ] 12.17 Add showmatch transcript endpoint
 - [ ] 12.18 Add recording manifest endpoint
 - [x] 12.19 Add leaderboard endpoint

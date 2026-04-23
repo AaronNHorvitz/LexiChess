@@ -199,10 +199,75 @@ def test_web_app_exposes_api_and_spectator_pages(tmp_path: Path) -> None:
     game_detail = client.get(f"/api/games/{game_id}")
     assert game_detail.status_code == 200
     assert game_detail.json()["moves"] == ["e4"]
+    assert len(game_detail.json()["seats"]) == 2
 
     replay = client.get(f"/api/games/{game_id}/replay")
     assert replay.status_code == 200
     assert replay.json()["moves"] == ["e4"]
+
+    created_game = client.post(
+        "/api/games",
+        json={
+            "mode": "interactive",
+            "white_provider": "ollama",
+            "white_model": "qwen3:8b",
+            "white_display_name": "Qwen Hero",
+            "black_provider": "stockfish",
+            "black_model": "stockfish_beginner",
+            "black_display_name": "Stockfish Villain",
+        },
+    )
+    assert created_game.status_code == 201
+    created_payload = created_game.json()
+    interactive_game_id = int(created_payload["game"]["id"])
+    assert created_payload["game"]["mode"] == "interactive"
+    assert created_payload["seats"][0]["display_name"] == "Qwen Hero"
+
+    seats = client.get(f"/api/games/{interactive_game_id}/seats")
+    assert seats.status_code == 200
+    assert seats.json()[0]["controller"] == "model"
+
+    claimed = client.post(
+        f"/api/games/{interactive_game_id}/seats/white/claim",
+        json={"claimed_by": "guest:alice", "display_name": "Alice"},
+    )
+    assert claimed.status_code == 200
+    assert claimed.json()["seat"]["controller"] == "human"
+
+    chat = client.post(
+        f"/api/games/{interactive_game_id}/chat",
+        json={
+            "author_name": "Alice",
+            "target": "white",
+            "message": "Let's play some chaos.",
+        },
+    )
+    assert chat.status_code == 201
+    assert chat.json()["event_type"] == "user_chat"
+
+    released = client.post(
+        f"/api/games/{interactive_game_id}/seats/white/release",
+        json={"provider": "ollama", "model": "qwen3:14b"},
+    )
+    assert released.status_code == 200
+    assert released.json()["seat"]["controller"] == "model"
+    assert released.json()["seat"]["model"] == "qwen3:14b"
+
+    events = client.get(f"/api/games/{interactive_game_id}/events")
+    assert events.status_code == 200
+    event_types = [event["event_type"] for event in events.json()]
+    assert event_types == [
+        "game_created",
+        "seat_claimed",
+        "user_chat",
+        "seat_released_to_model",
+    ]
+
+    stream = client.get(f"/api/games/{interactive_game_id}/events/stream?once=true")
+    assert stream.status_code == 200
+    assert stream.headers["content-type"].startswith("text/event-stream")
+    assert "event: game_created" in stream.text
+    assert "event: seat_released_to_model" in stream.text
 
     assert client.get("/openapi.json").status_code == 200
 
@@ -222,3 +287,4 @@ def test_web_app_exposes_api_and_spectator_pages(tmp_path: Path) -> None:
     game_page = client.get(f"/games/{game_id}")
     assert game_page.status_code == 200
     assert "Move List" in game_page.text
+    assert "Seat State" in game_page.text

@@ -28,6 +28,7 @@ class SQLiteRepository:
         black_provider: str,
         black_model: str,
         initial_fen: str,
+        mode: str = "benchmark",
         status: str = "running",
     ) -> int:
         with self._connect() as connection:
@@ -39,8 +40,9 @@ class SQLiteRepository:
                     black_provider,
                     black_model,
                     initial_fen,
+                    mode,
                     status
-                ) VALUES (?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     white_provider,
@@ -48,6 +50,7 @@ class SQLiteRepository:
                     black_provider,
                     black_model,
                     initial_fen,
+                    mode,
                     status,
                 ),
             )
@@ -216,6 +219,138 @@ class SQLiteRepository:
                 (limit,),
             ).fetchall()
         return [_game_row(row) for row in rows]
+
+    def upsert_game_seat(
+        self,
+        *,
+        game_id: int,
+        color: str,
+        controller: str,
+        provider: str | None,
+        model: str | None,
+        display_name: str | None,
+        claimed_by: str | None,
+    ) -> dict[str, Any]:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO game_seats (
+                    game_id,
+                    color,
+                    controller,
+                    provider,
+                    model,
+                    display_name,
+                    claimed_by
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(game_id, color)
+                DO UPDATE SET
+                    controller = excluded.controller,
+                    provider = COALESCE(excluded.provider, game_seats.provider),
+                    model = COALESCE(excluded.model, game_seats.model),
+                    display_name = COALESCE(excluded.display_name, game_seats.display_name),
+                    claimed_by = excluded.claimed_by,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (
+                    game_id,
+                    color,
+                    controller,
+                    provider,
+                    model,
+                    display_name,
+                    claimed_by,
+                ),
+            )
+            connection.commit()
+
+        seat = self.get_game_seat(game_id, color)
+        if seat is None:
+            raise RuntimeError("Seat upsert did not persist a row.")
+        return seat
+
+    def get_game_seat(self, game_id: int, color: str) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM game_seats
+                WHERE game_id = ? AND color = ?
+                """,
+                (game_id, color),
+            ).fetchone()
+        return _game_seat_row(row) if row else None
+
+    def list_game_seats(self, game_id: int) -> list[dict[str, Any]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM game_seats
+                WHERE game_id = ?
+                ORDER BY CASE color WHEN 'white' THEN 0 WHEN 'black' THEN 1 ELSE 2 END,
+                         id ASC
+                """,
+                (game_id,),
+            ).fetchall()
+        return [_game_seat_row(row) for row in rows]
+
+    def log_game_event(
+        self,
+        *,
+        game_id: int,
+        event_type: str,
+        payload: dict[str, Any],
+        color: str | None = None,
+    ) -> dict[str, Any]:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO game_events (
+                    game_id,
+                    event_type,
+                    color,
+                    payload_json
+                ) VALUES (?, ?, ?, ?)
+                """,
+                (game_id, event_type, color, _dump_json(payload)),
+            )
+            connection.commit()
+            event_id = _lastrowid(cursor)
+
+            row = connection.execute(
+                """
+                SELECT * FROM game_events
+                WHERE id = ?
+                """,
+                (event_id,),
+            ).fetchone()
+
+        if row is None:
+            raise RuntimeError("Game event insert did not persist a row.")
+        return _game_event_row(row)
+
+    def list_game_events(
+        self,
+        game_id: int,
+        *,
+        after_id: int | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        where_clause = "WHERE game_id = ?"
+        params: tuple[Any, ...] = (game_id, limit)
+        if after_id is not None:
+            where_clause += " AND id > ?"
+            params = (game_id, after_id, limit)
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT * FROM game_events
+                {where_clause}
+                ORDER BY id ASC
+                LIMIT ?
+                """,
+                params,
+            ).fetchall()
+        return [_game_event_row(row) for row in rows]
 
     def list_turns(
         self, game_id: int, *, legal_only: bool = False
@@ -773,6 +908,16 @@ def _plain_row(row: sqlite3.Row) -> dict[str, Any]:
 
 def _game_row(row: sqlite3.Row) -> dict[str, Any]:
     return dict(row)
+
+
+def _game_seat_row(row: sqlite3.Row) -> dict[str, Any]:
+    return dict(row)
+
+
+def _game_event_row(row: sqlite3.Row) -> dict[str, Any]:
+    payload = dict(row)
+    payload["payload_json"] = _load_json(payload["payload_json"])
+    return payload
 
 
 def _tournament_row(row: sqlite3.Row) -> dict[str, Any]:

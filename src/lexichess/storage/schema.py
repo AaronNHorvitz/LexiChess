@@ -12,9 +12,37 @@ CREATE TABLE IF NOT EXISTS games (
     black_provider TEXT NOT NULL,
     black_model TEXT NOT NULL,
     initial_fen TEXT NOT NULL,
+    mode TEXT NOT NULL DEFAULT 'benchmark',
     status TEXT NOT NULL,
     result TEXT,
     termination_reason TEXT
+);
+"""
+
+GAME_SEAT_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS game_seats (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    color TEXT NOT NULL,
+    controller TEXT NOT NULL,
+    provider TEXT,
+    model TEXT,
+    display_name TEXT,
+    claimed_by TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(game_id, color)
+);
+"""
+
+GAME_EVENT_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS game_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    event_type TEXT NOT NULL,
+    color TEXT,
+    payload_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 """
 
@@ -136,6 +164,16 @@ TURNS_GAME_INDEX_SQL = """
 CREATE INDEX IF NOT EXISTS idx_turns_game_id ON turns(game_id);
 """
 
+GAME_SEATS_GAME_INDEX_SQL = """
+CREATE INDEX IF NOT EXISTS idx_game_seats_game_id
+ON game_seats(game_id, color ASC, id ASC);
+"""
+
+GAME_EVENTS_GAME_INDEX_SQL = """
+CREATE INDEX IF NOT EXISTS idx_game_events_game_id
+ON game_events(game_id, id ASC);
+"""
+
 HALLUCINATIONS_GAME_INDEX_SQL = """
 CREATE INDEX IF NOT EXISTS idx_hallucinations_game_id ON hallucinations(game_id);
 """
@@ -195,6 +233,8 @@ CREATE INDEX IF NOT EXISTS idx_ratings_competitor_slug ON ratings(competitor_slu
 
 BASE_SCHEMA_STATEMENTS = (
     GAME_TABLE_SQL,
+    GAME_SEAT_TABLE_SQL,
+    GAME_EVENT_TABLE_SQL,
     TURN_TABLE_SQL,
     HALLUCINATION_TABLE_SQL,
     ENGINE_ANALYSIS_TABLE_SQL,
@@ -203,6 +243,8 @@ BASE_SCHEMA_STATEMENTS = (
     TOURNAMENT_PAIRING_TABLE_SQL,
     RATINGS_TABLE_SQL,
     TURNS_GAME_INDEX_SQL,
+    GAME_SEATS_GAME_INDEX_SQL,
+    GAME_EVENTS_GAME_INDEX_SQL,
     HALLUCINATIONS_GAME_INDEX_SQL,
     ENGINE_ANALYSES_GAME_INDEX_SQL,
     ENGINE_ANALYSES_TURN_INDEX_SQL,
@@ -212,6 +254,10 @@ BASE_SCHEMA_STATEMENTS = (
     TOURNAMENT_PAIRINGS_STATUS_INDEX_SQL,
     RATINGS_SLUG_INDEX_SQL,
 )
+
+GAME_MIGRATION_COLUMNS = {
+    "mode": "TEXT NOT NULL DEFAULT 'benchmark'",
+}
 
 TURN_MIGRATION_COLUMNS = {
     "attempt": "INTEGER NOT NULL DEFAULT 1",
@@ -229,6 +275,9 @@ RATING_MIGRATION_COLUMNS = {
 def ensure_schema(connection: sqlite3.Connection) -> None:
     for statement in BASE_SCHEMA_STATEMENTS:
         connection.execute(statement)
+
+    for column_name, column_sql in GAME_MIGRATION_COLUMNS.items():
+        _ensure_column(connection, "games", column_name, column_sql)
 
     for column_name, column_sql in TURN_MIGRATION_COLUMNS.items():
         _ensure_column(connection, "turns", column_name, column_sql)

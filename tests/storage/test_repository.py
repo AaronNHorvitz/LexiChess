@@ -172,6 +172,71 @@ def test_repository_persists_engine_analysis_rows(tmp_path: Path) -> None:
     assert rows[1]["multipv_rank"] == 2
 
 
+def test_repository_persists_game_seats_and_events(tmp_path: Path) -> None:
+    repository = SQLiteRepository(tmp_path / "interactive.db")
+    repository.initialize()
+
+    game_id = repository.create_game(
+        white_provider="ollama",
+        white_model="qwen3:8b",
+        black_provider="stockfish",
+        black_model="stockfish_beginner",
+        initial_fen=chess.STARTING_FEN,
+        mode="interactive",
+        status="created",
+    )
+
+    white_seat = repository.upsert_game_seat(
+        game_id=game_id,
+        color="white",
+        controller="model",
+        provider="ollama",
+        model="qwen3:8b",
+        display_name="Qwen Hero",
+        claimed_by=None,
+    )
+    repository.upsert_game_seat(
+        game_id=game_id,
+        color="white",
+        controller="human",
+        provider=None,
+        model=None,
+        display_name="Alice",
+        claimed_by="guest:alice",
+    )
+    repository.upsert_game_seat(
+        game_id=game_id,
+        color="black",
+        controller="model",
+        provider="stockfish",
+        model="stockfish_beginner",
+        display_name="Stockfish Villain",
+        claimed_by=None,
+    )
+    event = repository.log_game_event(
+        game_id=game_id,
+        event_type="seat_claimed",
+        color="white",
+        payload={"seat_id": white_seat["id"], "claimed_by": "guest:alice"},
+    )
+
+    game = repository.get_game(game_id)
+    seats = repository.list_game_seats(game_id)
+    events = repository.list_game_events(game_id)
+
+    assert game is not None
+    assert game["mode"] == "interactive"
+    assert seats[0]["controller"] == "human"
+    assert seats[0]["provider"] == "ollama"
+    assert seats[0]["claimed_by"] == "guest:alice"
+    assert seats[1]["color"] == "black"
+    assert events == [event]
+    assert events[0]["payload_json"] == {
+        "claimed_by": "guest:alice",
+        "seat_id": white_seat["id"],
+    }
+
+
 def test_repository_persists_tournament_entities_and_standings(tmp_path: Path) -> None:
     repository = SQLiteRepository(tmp_path / "tournaments.db")
     repository.initialize()
