@@ -524,7 +524,7 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [ ] 11.29 Evaluate `Cloud Run GPU` fit for bursty referee workloads
 - [ ] 11.30 Add infrastructure-as-code modules
 
-## [ ] Sprint 12: Website Backend API Foundation (15/26 done)
+## [ ] Sprint 12: Website Backend API Foundation (19/30 done)
 
 ### [ ] 12. Website Backend API Foundation
 
@@ -554,6 +554,10 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [x] 12.24 Add OpenAPI schema
 - [x] 12.25 Add API integration tests
 - [ ] 12.26 Add auth middleware and request guards
+- [x] 12.27 Add human move submission endpoint
+- [x] 12.28 Add live loop control endpoints
+- [x] 12.29 Add background live execution manager
+- [x] 12.30 Add model-turn worker orchestration
 
 ## [ ] Sprint 13: Accounts, Auth, Billing & Entitlements (0/30 done)
 

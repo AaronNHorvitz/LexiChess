@@ -7,6 +7,12 @@
   <p class="subhead">
     {{ bundle.game["status"] }} · result {{ bundle.game["result"] or "*" }} · {{ bundle.game["termination_reason"] or "-" }}
   </p>
+  <p class="subhead">
+    Live loop: {{ "running" if bundle.live["running"] else "idle" }}
+    {% if bundle.live["last_outcome"] %}
+    · last outcome {{ bundle.live["last_outcome"] }}
+    {% endif %}
+  </p>
 </section>
 
 <div class="panel-grid">

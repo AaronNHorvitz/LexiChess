@@ -1,17 +1,58 @@
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 import chess
+from _pytest.monkeypatch import MonkeyPatch
 from fastapi.testclient import TestClient
 
 from lexichess.config import AppSettings
 from lexichess.index.models import CompetitorIdentity, RatingSnapshot
+from lexichess.llm.base import MoveProvider, ProviderCapabilities, ProviderHealthReport
+from lexichess.llm.types import MoveRequest, ProviderResponse
 from lexichess.storage import SQLiteRepository
 from lexichess.web import create_app
 
 
-def test_web_app_exposes_api_and_spectator_pages(tmp_path: Path) -> None:
+class SharedScriptProvider(MoveProvider):
+    def __init__(self, provider_name: str, model: str, outputs: list[str]) -> None:
+        self.provider_name = provider_name
+        self.model = model
+        self._outputs = outputs
+
+    def capabilities(self) -> ProviderCapabilities:
+        return ProviderCapabilities(
+            supports_sync_requests=True,
+            supports_health_checks=True,
+            local_only=True,
+        )
+
+    def health_check(self) -> ProviderHealthReport:
+        return ProviderHealthReport(
+            provider_name=self.provider_name,
+            model=self.model,
+            is_healthy=True,
+            model_available=True,
+            capabilities=self.capabilities(),
+        )
+
+    def request_move(self, request: MoveRequest) -> ProviderResponse:
+        del request
+        output = self._outputs.pop(0)
+        return ProviderResponse(
+            provider=self.provider_name,
+            model=self.model,
+            output_text=output,
+            raw_response={"text": output},
+            latency_ms=1,
+        )
+
+
+def test_web_app_exposes_api_and_spectator_pages(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
     repository = SQLiteRepository(tmp_path / "web_app.db")
     repository.initialize()
 
@@ -165,6 +206,25 @@ def test_web_app_exposes_api_and_spectator_pages(tmp_path: Path) -> None:
         env={"LEXICHESS_DB_PATH": str(repository.database_path)},
         dotenv_path=None,
     )
+    outputs = {
+        ("ollama", "qwen3:8b"): ["MOVE: e4", "MOVE: Nf3"],
+    }
+
+    def fake_builder(
+        provider_name: str,
+        settings: AppSettings,
+        *,
+        model: str | None = None,
+    ) -> SharedScriptProvider:
+        del settings
+        resolved_model = model or "unknown"
+        return SharedScriptProvider(
+            provider_name,
+            resolved_model,
+            outputs[(provider_name, resolved_model)],
+        )
+
+    monkeypatch.setattr("lexichess.interactive.live.build_provider", fake_builder)
     app = create_app(settings)
     client = TestClient(app)
 
@@ -268,6 +328,64 @@ def test_web_app_exposes_api_and_spectator_pages(tmp_path: Path) -> None:
     assert stream.headers["content-type"].startswith("text/event-stream")
     assert "event: game_created" in stream.text
     assert "event: seat_released_to_model" in stream.text
+
+    live_game = client.post(
+        "/api/games",
+        json={
+            "mode": "interactive",
+            "white_provider": "ollama",
+            "white_model": "qwen3:8b",
+            "white_display_name": "Qwen Hero",
+            "black_provider": "ollama",
+            "black_model": "qwen3:14b",
+            "black_display_name": "Human Seat",
+        },
+    )
+    assert live_game.status_code == 201
+    live_game_id = int(live_game.json()["game"]["id"])
+
+    claim_black = client.post(
+        f"/api/games/{live_game_id}/seats/black/claim",
+        json={"claimed_by": "guest:bob", "display_name": "Bob"},
+    )
+    assert claim_black.status_code == 200
+
+    live_start = client.post(f"/api/games/{live_game_id}/live/start")
+    assert live_start.status_code == 200
+    assert live_start.json()["running"] is True
+
+    for _ in range(50):
+        live_status = client.get(f"/api/games/{live_game_id}/live")
+        assert live_status.status_code == 200
+        events_payload = client.get(f"/api/games/{live_game_id}/events").json()
+        if any(
+            event["event_type"] == "waiting_for_human_turn" for event in events_payload
+        ):
+            break
+        time.sleep(0.02)
+    else:
+        raise AssertionError("Live loop never reached a waiting-for-human state.")
+
+    move = client.post(
+        f"/api/games/{live_game_id}/moves",
+        json={"color": "black", "move_text": "MOVE: e5", "actor_name": "Bob"},
+    )
+    assert move.status_code == 201
+    assert move.json()["event_type"] == "human_move_submitted"
+
+    for _ in range(50):
+        events_payload = client.get(f"/api/games/{live_game_id}/events").json()
+        event_types = [event["event_type"] for event in events_payload]
+        if event_types.count("model_move_accepted") >= 2:
+            break
+        time.sleep(0.02)
+    else:
+        raise AssertionError("Live loop never produced the second model move.")
+
+    live_stop = client.post(f"/api/games/{live_game_id}/live/stop")
+    assert live_stop.status_code == 200
+    assert live_stop.json()["stop_requested"] is True
+    assert app.state.live_manager.wait_for_game(live_game_id, timeout=1.0) is True
 
     assert client.get("/openapi.json").status_code == 200
 

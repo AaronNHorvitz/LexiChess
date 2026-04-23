@@ -79,6 +79,18 @@ class SQLiteRepository:
             )
             connection.commit()
 
+    def update_game_status(self, game_id: int, *, status: str) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE games
+                SET status = ?
+                WHERE id = ?
+                """,
+                (status, game_id),
+            )
+            connection.commit()
+
     def log_turn(
         self,
         *,
@@ -351,6 +363,19 @@ class SQLiteRepository:
                 params,
             ).fetchall()
         return [_game_event_row(row) for row in rows]
+
+    def latest_game_event(self, game_id: int) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM game_events
+                WHERE game_id = ?
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                (game_id,),
+            ).fetchone()
+        return _game_event_row(row) if row else None
 
     def list_turns(
         self, game_id: int, *, legal_only: bool = False

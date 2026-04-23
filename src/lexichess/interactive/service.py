@@ -94,7 +94,9 @@ class InteractiveGameService:
 
     def list_seats(self, game_id: int) -> list[dict[str, Any]]:
         game = self._require_game(game_id)
-        seats = {seat["color"]: seat for seat in self.repository.list_game_seats(game_id)}
+        seats = {
+            seat["color"]: seat for seat in self.repository.list_game_seats(game_id)
+        }
         for color in _COLORS:
             if color not in seats:
                 seats[color] = self.repository.upsert_game_seat(
@@ -162,9 +164,7 @@ class InteractiveGameService:
             or str(game[f"{normalized_color}_provider"])
         )
         resolved_model = (
-            model
-            or seat.get("model")
-            or str(game[f"{normalized_color}_model"])
+            model or seat.get("model") or str(game[f"{normalized_color}_model"])
         )
 
         updated_seat = self.repository.upsert_game_seat(
@@ -173,8 +173,7 @@ class InteractiveGameService:
             controller=SeatController.MODEL.value,
             provider=resolved_provider,
             model=resolved_model,
-            display_name=display_name
-            or f"{resolved_provider}:{resolved_model}",
+            display_name=display_name or f"{resolved_provider}:{resolved_model}",
             claimed_by=None,
         )
         event = self.repository.log_game_event(

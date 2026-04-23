@@ -17,7 +17,11 @@ from pydantic import BaseModel, Field
 from lexichess import AppSettings
 from lexichess.config import GameMode, ProviderName
 from lexichess.index import build_chess_index_snapshot, render_chess_index_markdown
-from lexichess.interactive import InteractiveGameService
+from lexichess.interactive import (
+    InteractiveGameRuntime,
+    InteractiveGameService,
+    LiveGameLoopManager,
+)
 from lexichess.storage import SQLiteRepository
 from lexichess.tournament.export import (
     build_tournament_export,
@@ -34,6 +38,8 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     repository = SQLiteRepository(resolved_settings.database_path)
     repository.initialize()
     interactive_service = InteractiveGameService(repository, resolved_settings)
+    interactive_runtime = InteractiveGameRuntime(repository, resolved_settings)
+    live_manager = LiveGameLoopManager(interactive_runtime, repository)
     templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
     app = FastAPI(
@@ -45,6 +51,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     app.state.settings = resolved_settings
     app.state.repository = repository
     app.state.interactive_service = interactive_service
+    app.state.live_manager = live_manager
     app.state.templates = templates
 
     @app.get("/healthz")
@@ -136,21 +143,38 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
             )
         except (LookupError, ValueError) as exc:
             raise _as_http_error(exc) from exc
-        return _game_bundle(repository, interactive_service, int(created["game"]["id"]))
+        return _game_bundle(
+            repository, interactive_service, live_manager, int(created["game"]["id"])
+        )
 
     @app.get("/api/games/{game_id}")
     def api_game_detail(game_id: int) -> dict[str, Any]:
-        return _game_bundle(repository, interactive_service, game_id)
+        return _game_bundle(repository, interactive_service, live_manager, game_id)
 
     @app.get("/api/games/{game_id}/replay")
     def api_game_replay(game_id: int) -> dict[str, Any]:
-        bundle = _game_bundle(repository, interactive_service, game_id)
+        bundle = _game_bundle(repository, interactive_service, live_manager, game_id)
         return {
             "game_id": game_id,
             "moves": bundle["moves"],
             "move_list": bundle["move_list"],
             "pgn": bundle["pgn"],
         }
+
+    @app.post("/api/games/{game_id}/moves", status_code=201)
+    def api_submit_human_move(
+        game_id: int, payload: HumanMoveRequest
+    ) -> dict[str, Any]:
+        try:
+            event = interactive_runtime.submit_human_move(
+                game_id,
+                color=payload.color,
+                move_text=payload.move_text,
+                actor_name=payload.actor_name,
+            )
+        except (LookupError, ValueError) as exc:
+            raise _as_http_error(exc) from exc
+        return event
 
     @app.get("/api/games/{game_id}/seats")
     def api_game_seats(game_id: int) -> list[dict[str, Any]]:
@@ -204,6 +228,25 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
             )
         except (LookupError, ValueError) as exc:
             raise _as_http_error(exc) from exc
+
+    @app.get("/api/games/{game_id}/live")
+    def api_game_live_status(game_id: int) -> dict[str, Any]:
+        if repository.get_game(game_id) is None:
+            raise HTTPException(status_code=404, detail="Game not found.")
+        return live_manager.status(game_id)
+
+    @app.post("/api/games/{game_id}/live/start")
+    def api_start_game_live_loop(game_id: int) -> dict[str, Any]:
+        try:
+            return live_manager.start(game_id)
+        except (LookupError, ValueError) as exc:
+            raise _as_http_error(exc) from exc
+
+    @app.post("/api/games/{game_id}/live/stop")
+    def api_stop_game_live_loop(game_id: int) -> dict[str, Any]:
+        if repository.get_game(game_id) is None:
+            raise HTTPException(status_code=404, detail="Game not found.")
+        return live_manager.stop(game_id)
 
     @app.get("/api/games/{game_id}/events/stream")
     def api_game_events_stream(
@@ -315,7 +358,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
 
     @app.get("/games/{game_id}", response_class=HTMLResponse)
     def game_page(request: Request, game_id: int) -> HTMLResponse:
-        bundle = _game_bundle(repository, interactive_service, game_id)
+        bundle = _game_bundle(repository, interactive_service, live_manager, game_id)
         templates = _templates(request)
         return templates.TemplateResponse(
             request,
@@ -333,6 +376,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
 def _game_bundle(
     repository: SQLiteRepository,
     interactive_service: InteractiveGameService,
+    live_manager: LiveGameLoopManager,
     game_id: int,
 ) -> dict[str, Any]:
     game = repository.get_game(game_id)
@@ -344,6 +388,7 @@ def _game_bundle(
     bundle = build_game_bundle(game, turns, hallucinations, engine_analyses)
     bundle["seats"] = interactive_service.list_seats(game_id)
     bundle["events"] = interactive_service.list_events(game_id, limit=50)
+    bundle["live"] = live_manager.status(game_id)
     return bundle
 
 
@@ -452,3 +497,9 @@ class GameChatRequest(BaseModel):
     author_name: str
     target: str
     message: str
+
+
+class HumanMoveRequest(BaseModel):
+    color: str
+    move_text: str
+    actor_name: str | None = None
