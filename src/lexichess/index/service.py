@@ -105,11 +105,13 @@ def rate_completed_game(
         white_after,
         source_game_id=source_game_id,
         source_result=result,
+        competitor_result=_competitor_result_for_outcome(result, color="white"),
     )
     repository.record_rating_snapshot(
         black_after,
         source_game_id=source_game_id,
         source_result=result,
+        competitor_result=_competitor_result_for_outcome(result, color="black"),
     )
 
     return MatchRatingUpdate(
@@ -201,6 +203,16 @@ def _match_results_for_outcome(result: str) -> tuple[EloMatchResult, EloMatchRes
         return EloMatchResult.LOSS, EloMatchResult.WIN
     if result == "1/2-1/2":
         return EloMatchResult.DRAW, EloMatchResult.DRAW
+    raise ValueError(f"Unsupported game result for rating: {result}")
+
+
+def _competitor_result_for_outcome(result: str, *, color: str) -> str:
+    if result == "1/2-1/2":
+        return "draw"
+    if result == "1-0":
+        return "win" if color == "white" else "loss"
+    if result == "0-1":
+        return "loss" if color == "white" else "win"
     raise ValueError(f"Unsupported game result for rating: {result}")
 
 

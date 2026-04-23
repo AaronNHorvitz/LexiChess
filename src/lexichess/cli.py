@@ -12,8 +12,10 @@ from lexichess.index import (
     EloMatchResult,
     RatingSnapshot,
     apply_elo_result,
+    build_chess_index_snapshot,
     default_engine_anchors,
     rate_recorded_game,
+    render_chess_index_markdown,
 )
 from lexichess.llm.registry import build_provider
 from lexichess.storage.repository import SQLiteRepository
@@ -29,6 +31,10 @@ from lexichess.tournament import (
     pause_tournament,
     run_anchor_benchmark,
     run_tournament,
+)
+from lexichess.tournament.export import (
+    export_tournament_json,
+    render_tournament_markdown,
 )
 from lexichess.tournament.runner import GameRunner
 
@@ -155,6 +161,25 @@ def build_parser() -> argparse.ArgumentParser:
     list_ratings_parser.add_argument("--limit", type=int, default=50)
     list_ratings_parser.add_argument("--json", action="store_true")
 
+    chess_index_parser = subparsers.add_parser(
+        "chess-index",
+        help="Build the current Chess Index leaderboard snapshot from stored ratings.",
+    )
+    chess_index_parser.add_argument("--db-path")
+    chess_index_parser.add_argument("--limit", type=int, default=50)
+    chess_index_parser.add_argument("--minimum-games", type=int, default=0)
+    chess_index_parser.add_argument(
+        "--include-provisional",
+        action="store_true",
+        help="Include provisional competitors in the leaderboard snapshot.",
+    )
+    chess_index_parser.add_argument(
+        "--format",
+        choices=["json", "markdown"],
+        default="json",
+    )
+    chess_index_parser.add_argument("--output")
+
     rating_history_parser = subparsers.add_parser(
         "rating-history", help="Show stored rating history for one competitor slug."
     )
@@ -276,6 +301,19 @@ def build_parser() -> argparse.ArgumentParser:
     inspect_tournament_parser.add_argument("--db-path")
     inspect_tournament_parser.add_argument("--json", action="store_true")
 
+    export_tournament_parser = subparsers.add_parser(
+        "export-tournament",
+        help="Export one tournament as JSON or Markdown.",
+    )
+    export_tournament_parser.add_argument("tournament_id", type=int)
+    export_tournament_parser.add_argument("--db-path")
+    export_tournament_parser.add_argument(
+        "--format",
+        choices=["json", "markdown"],
+        default="json",
+    )
+    export_tournament_parser.add_argument("--output")
+
     run_tournament_parser = subparsers.add_parser(
         "run-tournament",
         help="Run or resume a persisted tournament.",
@@ -364,6 +402,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "list-ratings":
         return _run_list_ratings(args, settings)
 
+    if args.command == "chess-index":
+        return _run_chess_index(args, settings)
+
     if args.command == "rating-history":
         return _run_rating_history(args, settings)
 
@@ -381,6 +422,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "inspect-tournament":
         return _run_inspect_tournament(args, settings)
+
+    if args.command == "export-tournament":
+        return _run_export_tournament(args, settings)
 
     if args.command == "run-tournament":
         return _run_run_tournament(args, settings)
@@ -613,6 +657,22 @@ def _run_list_ratings(args: argparse.Namespace, settings: AppSettings) -> int:
     return 0
 
 
+def _run_chess_index(args: argparse.Namespace, settings: AppSettings) -> int:
+    repository = _build_repository(args, settings)
+    snapshot = build_chess_index_snapshot(
+        repository,
+        limit=args.limit,
+        minimum_games=args.minimum_games,
+        include_provisional=args.include_provisional,
+    )
+    if args.format == "markdown":
+        payload = render_chess_index_markdown(snapshot)
+    else:
+        payload = json.dumps(snapshot.to_dict(), indent=2)
+    _write_or_print(payload, output_path=args.output)
+    return 0
+
+
 def _run_rating_history(args: argparse.Namespace, settings: AppSettings) -> int:
     repository = _build_repository(args, settings)
     history = repository.list_rating_history(args.competitor_slug)
@@ -800,6 +860,17 @@ def _run_inspect_tournament(args: argparse.Namespace, settings: AppSettings) -> 
     return 0
 
 
+def _run_export_tournament(args: argparse.Namespace, settings: AppSettings) -> int:
+    repository = _build_repository(args, settings)
+    _require_tournament(repository, args.tournament_id)
+    if args.format == "markdown":
+        payload = render_tournament_markdown(repository, args.tournament_id)
+    else:
+        payload = export_tournament_json(repository, args.tournament_id)
+    _write_or_print(payload, output_path=args.output)
+    return 0
+
+
 def _run_run_tournament(args: argparse.Namespace, settings: AppSettings) -> int:
     repository = _build_repository(args, settings)
     summary = run_tournament(
@@ -909,6 +980,13 @@ def _build_repository(
     repository = SQLiteRepository(Path(args.db_path or settings.database_path))
     repository.initialize()
     return repository
+
+
+def _write_or_print(payload: str, *, output_path: str | None) -> None:
+    if output_path:
+        Path(output_path).write_text(payload + ("" if payload.endswith("\n") else "\n"))
+        return
+    print(payload)
 
 
 def _game_bundle_for(repository: SQLiteRepository, game_id: int) -> dict[str, Any]:

@@ -184,6 +184,7 @@ CREATE TABLE IF NOT EXISTS ratings (
     provisional INTEGER NOT NULL,
     source_game_id INTEGER REFERENCES games(id) ON DELETE SET NULL,
     source_result TEXT,
+    competitor_result TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 """
@@ -220,6 +221,10 @@ TURN_MIGRATION_COLUMNS = {
     "referee_note": "TEXT",
 }
 
+RATING_MIGRATION_COLUMNS = {
+    "competitor_result": "TEXT",
+}
+
 
 def ensure_schema(connection: sqlite3.Connection) -> None:
     for statement in BASE_SCHEMA_STATEMENTS:
@@ -227,6 +232,9 @@ def ensure_schema(connection: sqlite3.Connection) -> None:
 
     for column_name, column_sql in TURN_MIGRATION_COLUMNS.items():
         _ensure_column(connection, "turns", column_name, column_sql)
+
+    for column_name, column_sql in RATING_MIGRATION_COLUMNS.items():
+        _ensure_column(connection, "ratings", column_name, column_sql)
 
 
 def _ensure_column(

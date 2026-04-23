@@ -362,7 +362,7 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [ ] 6.29 Add referee-model deployment preset
 - [ ] 6.30 Add optional `Gemma` player deployment preset
 
-## [ ] Sprint 7: Stockfish, Ratings & Chess Index Core (12/26 done)
+## [ ] Sprint 7: Stockfish, Ratings & Chess Index Core (16/26 done)
 
 ### [ ] 7. Stockfish, Ratings & Chess Index Core
 
@@ -387,11 +387,11 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [x] 7.19 Add competitor identity schema
 - [x] 7.20 Add rating update service
 - [x] 7.21 Add rating snapshot history
-- [ ] 7.22 Add public `Chess Index` generation logic
-- [ ] 7.23 Add rating export format
+- [x] 7.22 Add public `Chess Index` generation logic
+- [x] 7.23 Add rating export format
 - [x] 7.24 Add rating tests
-- [ ] 7.25 Add benchmark summary report template
-- [ ] 7.26 Add Chess Index reproducibility manifest
+- [x] 7.25 Add benchmark summary report template
+- [x] 7.26 Add Chess Index reproducibility manifest
 
 ## [ ] Sprint 8: Model Intake, Licensing & Roster Governance (9/24 done)
 
@@ -462,7 +462,7 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [ ] 9.23 Add data retention notes
 - [ ] 9.24 Add replay package structure definition
 
-## [ ] Sprint 10: Tournament Scheduling & Batch Orchestration (15/22 done)
+## [ ] Sprint 10: Tournament Scheduling & Batch Orchestration (16/22 done)
 
 ### [ ] 10. Tournament Scheduling & Batch Orchestration
 
@@ -482,7 +482,7 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [ ] 10.14 Add compute-aware scheduling rules
 - [ ] 10.15 Add per-worker concurrency caps
 - [x] 10.16 Add tournament CLI commands
-- [ ] 10.17 Add tournament export format
+- [x] 10.17 Add tournament export format
 - [ ] 10.18 Add tournament API contracts
 - [ ] 10.19 Add private tournament support
 - [ ] 10.20 Add featured event scheduling support

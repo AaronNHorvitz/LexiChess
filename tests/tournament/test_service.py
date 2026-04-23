@@ -50,7 +50,9 @@ class FakeTournamentProvider(MoveProvider):
         )
 
 
-def test_run_tournament_can_pause_and_resume(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+def test_run_tournament_can_pause_and_resume(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
     repository = SQLiteRepository(tmp_path / "service_tournaments.db")
     settings = AppSettings.from_env()
     tournament_id = create_round_robin_tournament(
@@ -80,9 +82,13 @@ def test_run_tournament_can_pause_and_resume(tmp_path: Path, monkeypatch: Monkey
         key = (provider_name, resolved_model)
         index = creation_counts[key]
         creation_counts[key] += 1
-        return FakeTournamentProvider(provider_name, resolved_model, scripts[key][index])
+        return FakeTournamentProvider(
+            provider_name, resolved_model, scripts[key][index]
+        )
 
-    monkeypatch.setattr("lexichess.tournament.service.build_provider", fake_build_provider)
+    monkeypatch.setattr(
+        "lexichess.tournament.service.build_provider", fake_build_provider
+    )
 
     first_summary = run_tournament(
         repository,
@@ -163,7 +169,9 @@ def test_run_tournament_can_retry_failed_pairings(
         resolved_model = model or "unknown"
         if provider_name == "ollama":
             return FakeTournamentProvider(provider_name, resolved_model, ["e4"])
-        return FakeTournamentProvider(provider_name, resolved_model, ["banana", "still bad"])
+        return FakeTournamentProvider(
+            provider_name, resolved_model, ["banana", "still bad"]
+        )
 
     monkeypatch.setattr(
         "lexichess.tournament.service.build_provider",

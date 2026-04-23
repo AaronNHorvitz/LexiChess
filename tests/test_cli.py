@@ -426,3 +426,40 @@ def test_cli_can_create_inspect_and_run_tournament(
     inspected = json.loads(capsys.readouterr().out)
     assert inspected["tournament"]["status"] == "completed"
     assert inspected["pairings"][0]["result"] == "1-0"
+
+    tournament_export_path = tmp_path / "tournament_report.md"
+    assert (
+        main(
+            [
+                "export-tournament",
+                str(tournament_id),
+                "--db-path",
+                str(database_path),
+                "--format",
+                "markdown",
+                "--output",
+                str(tournament_export_path),
+            ]
+        )
+        == 0
+    )
+    tournament_report = tournament_export_path.read_text()
+    assert "# Tournament Report: Opening Night" in tournament_report
+    assert "## Standings" in tournament_report
+
+    assert (
+        main(
+            [
+                "chess-index",
+                "--db-path",
+                str(database_path),
+                "--include-provisional",
+                "--format",
+                "json",
+            ]
+        )
+        == 0
+    )
+    leaderboard = json.loads(capsys.readouterr().out)
+    assert leaderboard["included_competitors"] == 2
+    assert leaderboard["entries"][0]["games_played"] == 1

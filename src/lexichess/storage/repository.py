@@ -650,6 +650,7 @@ class SQLiteRepository:
         *,
         source_game_id: int | None = None,
         source_result: str | None = None,
+        competitor_result: str | None = None,
     ) -> int:
         with self._connect() as connection:
             cursor = connection.execute(
@@ -667,8 +668,9 @@ class SQLiteRepository:
                     games_played,
                     provisional,
                     source_game_id,
-                    source_result
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    source_result,
+                    competitor_result
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     snapshot.competitor.slug,
@@ -684,10 +686,23 @@ class SQLiteRepository:
                     1 if snapshot.provisional else 0,
                     source_game_id,
                     source_result,
+                    competitor_result,
                 ),
             )
             connection.commit()
             return _lastrowid(cursor)
+
+    def list_rating_snapshots_for_game(self, game_id: int) -> list[dict[str, Any]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM ratings
+                WHERE source_game_id = ?
+                ORDER BY id ASC
+                """,
+                (game_id,),
+            ).fetchall()
+        return [_rating_row(row) for row in rows]
 
     def latest_rating_snapshot(self, competitor_slug: str) -> dict[str, Any] | None:
         with self._connect() as connection:
