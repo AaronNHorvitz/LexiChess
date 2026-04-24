@@ -184,4 +184,58 @@
     {% endfor %}
   </div>
 </section>
+
+<div class="panel-grid">
+  <section class="panel">
+    <div class="panel-heading">
+      <h2>Broadcast Highlights</h2>
+    </div>
+    <div class="list-stack">
+      {% for item in bundle.broadcast_highlights %}
+      <div class="list-card static-card">
+        <strong>{{ item["title"] }} · {{ item["severity"] }}</strong>
+        <span>{{ item["summary"] }}</span>
+      </div>
+      {% else %}
+      <p class="empty-copy">No highlight moments detected yet.</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-heading">
+      <h2>Clip Manifest</h2>
+    </div>
+    <div class="list-stack">
+      {% for clip in bundle.clip_manifest %}
+      <div class="list-card static-card">
+        <strong>{{ clip["title"] }}</strong>
+        <span>{{ clip["summary"] }}</span>
+        <span>
+          {{ clip["start_entry_id"] }} → {{ clip["end_entry_id"] }}
+          · {{ clip["recommended_duration_seconds"] }}s
+        </span>
+      </div>
+      {% else %}
+      <p class="empty-copy">No clips generated yet.</p>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+
+<section class="panel">
+  <div class="panel-heading">
+    <h2>Broadcast Timeline</h2>
+  </div>
+  <div class="list-stack">
+    {% for entry in bundle.broadcast_timeline %}
+    <div class="list-card static-card">
+      <strong>#{{ entry["sequence"] }} · {{ entry["title"] }}</strong>
+      <span>{{ entry["message"] }}</span>
+    </div>
+    {% else %}
+    <p class="empty-copy">No broadcast timeline entries recorded yet.</p>
+    {% endfor %}
+  </div>
+</section>
 {% endblock %}

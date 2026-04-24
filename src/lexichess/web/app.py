@@ -22,6 +22,7 @@ from lexichess.interactive import (
     InteractiveGameService,
     LiveGameLoopManager,
     build_banter_service,
+    build_broadcast_package,
     build_referee_service,
     build_showmatch_script_service,
 )
@@ -334,6 +335,21 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
             and event["payload_json"].get("category") == "quote_pin"
         ][:limit]
 
+    @app.get("/api/games/{game_id}/broadcast")
+    def api_game_broadcast(game_id: int) -> dict[str, Any]:
+        bundle = _game_bundle(repository, interactive_service, live_manager, game_id)
+        return cast(dict[str, Any], bundle["broadcast"])
+
+    @app.get("/api/games/{game_id}/highlights")
+    def api_game_highlights(game_id: int) -> list[dict[str, Any]]:
+        bundle = _game_bundle(repository, interactive_service, live_manager, game_id)
+        return cast(list[dict[str, Any]], bundle["broadcast_highlights"])
+
+    @app.get("/api/games/{game_id}/clips")
+    def api_game_clip_manifest(game_id: int) -> list[dict[str, Any]]:
+        bundle = _game_bundle(repository, interactive_service, live_manager, game_id)
+        return cast(list[dict[str, Any]], bundle["clip_manifest"])
+
     @app.get("/api/games/{game_id}/live")
     def api_game_live_status(game_id: int) -> dict[str, Any]:
         if repository.get_game(game_id) is None:
@@ -580,7 +596,8 @@ def _game_bundle(
     engine_analyses = repository.list_engine_analyses(game_id)
     bundle = build_game_bundle(game, turns, hallucinations, engine_analyses)
     bundle["seats"] = interactive_service.list_seats(game_id)
-    bundle["events"] = interactive_service.list_events(game_id, limit=50)
+    all_events = interactive_service.list_events(game_id, limit=500)
+    bundle["events"] = all_events[-50:]
     bundle["referee_events"] = interactive_service.list_events(
         game_id,
         event_types=("referee_message",),
@@ -602,6 +619,17 @@ def _game_bundle(
         if isinstance(event.get("payload_json"), dict)
         and event["payload_json"].get("category") == "quote_pin"
     ]
+    broadcast = build_broadcast_package(
+        game,
+        turns,
+        hallucinations,
+        all_events,
+        seats=cast(list[dict[str, Any]], bundle["seats"]),
+    ).to_dict()
+    bundle["broadcast"] = broadcast
+    bundle["broadcast_timeline"] = broadcast["timeline"]
+    bundle["broadcast_highlights"] = broadcast["highlights"]
+    bundle["clip_manifest"] = broadcast["clip_manifest"]
     bundle["live"] = live_manager.status(game_id)
     return bundle
 

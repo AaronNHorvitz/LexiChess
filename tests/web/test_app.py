@@ -410,6 +410,18 @@ def test_web_app_exposes_api_and_spectator_pages(
     assert quotes_feed.status_code == 200
     assert isinstance(quotes_feed.json(), list)
 
+    broadcast_feed = client.get(f"/api/games/{game_id}/broadcast")
+    assert broadcast_feed.status_code == 200
+    assert broadcast_feed.json()["summary"]["highlight_count"] >= 1
+
+    highlights_feed = client.get(f"/api/games/{game_id}/highlights")
+    assert highlights_feed.status_code == 200
+    assert highlights_feed.json()[0]["category"] == "illegal_move"
+
+    clips_feed = client.get(f"/api/games/{game_id}/clips")
+    assert clips_feed.status_code == 200
+    assert clips_feed.json()[0]["focus_entry_id"].startswith("hallucination:")
+
     transcript_feed = client.get(f"/api/games/{live_game_id}/transcript")
     assert transcript_feed.status_code == 200
     transcript_types = [event["event_type"] for event in transcript_feed.json()]
@@ -458,3 +470,6 @@ def test_web_app_exposes_api_and_spectator_pages(
     assert "Seat State" in game_page.text
     assert "Showmatch Feed" in game_page.text
     assert "Quote Pins" in game_page.text
+    assert "Broadcast Highlights" in game_page.text
+    assert "Clip Manifest" in game_page.text
+    assert "Broadcast Timeline" in game_page.text

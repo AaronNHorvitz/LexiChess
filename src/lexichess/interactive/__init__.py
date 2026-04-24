@@ -4,6 +4,13 @@ from lexichess.interactive.banter import (
     ProviderBackedBanterService,
     build_banter_service,
 )
+from lexichess.interactive.broadcast import (
+    BroadcastClip,
+    BroadcastHighlight,
+    BroadcastPackage,
+    BroadcastTimelineEntry,
+    build_broadcast_package,
+)
 from lexichess.interactive.live import (
     InteractiveGameRuntime,
     LiveAdvanceResult,
@@ -26,7 +33,12 @@ from lexichess.interactive.service import InteractiveGameService
 
 __all__ = [
     "BanterService",
+    "BroadcastClip",
+    "BroadcastHighlight",
+    "BroadcastPackage",
+    "BroadcastTimelineEntry",
     "build_banter_service",
+    "build_broadcast_package",
     "DeterministicBanterService",
     "build_referee_service",
     "DeterministicRefereeService",
