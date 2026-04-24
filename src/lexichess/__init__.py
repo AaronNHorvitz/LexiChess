@@ -6,6 +6,7 @@ from lexichess.config import (
     GameMode,
     PersonaRole,
     ProviderName,
+    RefereeSettings,
     SeatController,
     StockfishSettings,
 )
@@ -16,6 +17,7 @@ __all__ = [
     "GameMode",
     "PersonaRole",
     "ProviderName",
+    "RefereeSettings",
     "SeatController",
     "StockfishSettings",
 ]

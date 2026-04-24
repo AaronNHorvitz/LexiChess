@@ -74,6 +74,17 @@ class CharacterModeSettings:
 
 
 @dataclass(frozen=True, slots=True)
+class RefereeSettings:
+    enabled: bool = True
+    provider: ProviderName = ProviderName.OLLAMA
+    model: str = "gemma4:latest"
+    speaker_name: str = "Gemma 4 Referee"
+    temperature: float = 0.4
+    max_output_tokens: int = 96
+    allow_fallback: bool = True
+
+
+@dataclass(frozen=True, slots=True)
 class LoggingSettings:
     level: str = "INFO"
     json: bool = False
@@ -115,6 +126,7 @@ class AppSettings:
     showmatch_mode: ShowmatchModeSettings
     interactive_mode: InteractiveModeSettings
     character_mode: CharacterModeSettings
+    referee: RefereeSettings
     ollama: OllamaSettings
     stockfish: StockfishSettings
 
@@ -206,6 +218,32 @@ class AppSettings:
                     raw.get("LEXICHESS_CHARACTER_ENABLE_MEMORY"), False
                 ),
             ),
+            referee=RefereeSettings(
+                enabled=_parse_bool(raw.get("LEXICHESS_REFEREE_ENABLED"), True),
+                provider=ProviderName(
+                    raw.get("LEXICHESS_REFEREE_PROVIDER", ProviderName.OLLAMA)
+                    .strip()
+                    .lower()
+                ),
+                model=_optional_str(raw.get("LEXICHESS_REFEREE_MODEL"))
+                or "gemma4:latest",
+                speaker_name=raw.get(
+                    "LEXICHESS_REFEREE_SPEAKER_NAME",
+                    "Gemma 4 Referee",
+                ).strip(),
+                temperature=_parse_float(
+                    raw.get("LEXICHESS_REFEREE_TEMPERATURE"),
+                    0.4,
+                ),
+                max_output_tokens=_parse_int(
+                    raw.get("LEXICHESS_REFEREE_MAX_OUTPUT_TOKENS"),
+                    96,
+                ),
+                allow_fallback=_parse_bool(
+                    raw.get("LEXICHESS_REFEREE_ALLOW_FALLBACK"),
+                    True,
+                ),
+            ),
             ollama=OllamaSettings(
                 host=raw.get("OLLAMA_HOST", "http://localhost:11434").rstrip("/"),
                 model=model_override
@@ -274,6 +312,15 @@ class AppSettings:
                 "enable_voices": self.character_mode.enable_voices,
                 "enable_avatars": self.character_mode.enable_avatars,
                 "enable_memory": self.character_mode.enable_memory,
+            },
+            "referee": {
+                "enabled": self.referee.enabled,
+                "provider": self.referee.provider.value,
+                "model": self.referee.model,
+                "speaker_name": self.referee.speaker_name,
+                "temperature": self.referee.temperature,
+                "max_output_tokens": self.referee.max_output_tokens,
+                "allow_fallback": self.referee.allow_fallback,
             },
             "ollama": {
                 "host": self.ollama.host,

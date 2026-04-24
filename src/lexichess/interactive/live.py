@@ -8,6 +8,10 @@ from typing import Any
 
 from lexichess.chess import ChessBoard
 from lexichess.config import AppSettings, SeatController
+from lexichess.interactive.referee import (
+    DeterministicRefereeService,
+    RefereeService,
+)
 from lexichess.llm import MoveProvider, MoveRequest, ProviderError, build_provider
 from lexichess.storage import SQLiteRepository
 from lexichess.tournament.models import InvalidMoveNotification
@@ -20,9 +24,6 @@ from lexichess.tournament.replay import accepted_san_moves
 from lexichess.interactive.transcripts import (
     build_finish_banter,
     build_player_banter,
-    build_referee_finish,
-    build_referee_provider_error,
-    build_referee_ruling,
 )
 
 ProviderBuilder = Callable[..., MoveProvider]
@@ -54,11 +55,15 @@ class InteractiveGameRuntime:
         settings: AppSettings,
         *,
         provider_builder: ProviderBuilder | None = None,
+        referee_service: RefereeService | None = None,
         max_correction_attempts: int = 1,
     ) -> None:
         self.repository = repository
         self.settings = settings
         self.provider_builder = provider_builder or build_provider
+        self.referee_service = referee_service or DeterministicRefereeService(
+            speaker_name=settings.referee.speaker_name
+        )
         self.max_correction_attempts = max_correction_attempts
 
     def advance_once(self, game_id: int) -> LiveAdvanceResult:
@@ -160,11 +165,14 @@ class InteractiveGameRuntime:
             self._emit_referee_message(
                 game_id=game_id,
                 color=normalized_color,
-                payload=build_referee_ruling(
+                payload=self.referee_service.ruling(
+                    game_id=game_id,
                     color=normalized_color,
                     reason=interpretation.reason or "invalid_or_illegal_move",
                     detail=deterministic_explanation,
                     move_text=move_text,
+                    fen=fen_before,
+                    legal_moves=tuple(board.legal_moves_san()),
                 ),
             )
             raise ValueError(str(event["payload_json"]["detail"]))
@@ -277,9 +285,11 @@ class InteractiveGameRuntime:
                 self._emit_referee_message(
                     game_id=game_id,
                     color=color,
-                    payload=build_referee_provider_error(
+                    payload=self.referee_service.provider_error(
+                        game_id=game_id,
                         color=color,
                         detail=str(exc),
+                        fen=board.fen,
                     ),
                 )
                 return self._finish_invalid_game(
@@ -434,11 +444,14 @@ class InteractiveGameRuntime:
             self._emit_referee_message(
                 game_id=game_id,
                 color=color,
-                payload=build_referee_ruling(
+                payload=self.referee_service.ruling(
+                    game_id=game_id,
                     color=color,
                     reason=interpretation.reason or "invalid_or_illegal_move",
                     detail=deterministic_explanation,
                     move_text=response.output_text,
+                    fen=fen_before,
+                    legal_moves=legal_moves,
                 ),
             )
             if attempt > self.max_correction_attempts:
@@ -541,9 +554,11 @@ class InteractiveGameRuntime:
         self._emit_referee_message(
             game_id=game_id,
             color=color,
-            payload=build_referee_finish(
+            payload=self.referee_service.finish(
+                game_id=game_id,
                 result=result,
                 termination_reason=termination_reason,
+                fen=board.fen,
             ),
         )
         finish_banter = self._finish_banter_payload(game_id=game_id, result=result)
@@ -581,9 +596,11 @@ class InteractiveGameRuntime:
         self._emit_referee_message(
             game_id=game_id,
             color=None,
-            payload=build_referee_finish(
+            payload=self.referee_service.finish(
+                game_id=game_id,
                 result=result,
                 termination_reason=termination_reason,
+                fen=board.fen,
             ),
         )
         finish_banter = self._finish_banter_payload(game_id=game_id, result=result)

@@ -21,6 +21,7 @@ from lexichess.interactive import (
     InteractiveGameRuntime,
     InteractiveGameService,
     LiveGameLoopManager,
+    build_referee_service,
 )
 from lexichess.storage import SQLiteRepository
 from lexichess.tournament.export import (
@@ -38,7 +39,12 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     repository = SQLiteRepository(resolved_settings.database_path)
     repository.initialize()
     interactive_service = InteractiveGameService(repository, resolved_settings)
-    interactive_runtime = InteractiveGameRuntime(repository, resolved_settings)
+    referee_service = build_referee_service(resolved_settings)
+    interactive_runtime = InteractiveGameRuntime(
+        repository,
+        resolved_settings,
+        referee_service=referee_service,
+    )
     live_manager = LiveGameLoopManager(interactive_runtime, repository)
     templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 

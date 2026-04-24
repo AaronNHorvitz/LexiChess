@@ -60,6 +60,29 @@ def test_settings_parse_profiles_modes_and_flags() -> None:
     assert settings.logging.json is True
 
 
+def test_settings_parse_referee_configuration() -> None:
+    settings = AppSettings.from_env(
+        env={
+            "LEXICHESS_REFEREE_ENABLED": "true",
+            "LEXICHESS_REFEREE_PROVIDER": "ollama",
+            "LEXICHESS_REFEREE_MODEL": "gemma4:latest",
+            "LEXICHESS_REFEREE_SPEAKER_NAME": "Gemma 4 Ref",
+            "LEXICHESS_REFEREE_TEMPERATURE": "0.55",
+            "LEXICHESS_REFEREE_MAX_OUTPUT_TOKENS": "120",
+            "LEXICHESS_REFEREE_ALLOW_FALLBACK": "false",
+        },
+        dotenv_path=None,
+    )
+
+    assert settings.referee.enabled is True
+    assert settings.referee.provider is ProviderName.OLLAMA
+    assert settings.referee.model == "gemma4:latest"
+    assert settings.referee.speaker_name == "Gemma 4 Ref"
+    assert settings.referee.temperature == 0.55
+    assert settings.referee.max_output_tokens == 120
+    assert settings.referee.allow_fallback is False
+
+
 def test_settings_export_redacts_secrets_by_default() -> None:
     settings = AppSettings.from_env(
         env={

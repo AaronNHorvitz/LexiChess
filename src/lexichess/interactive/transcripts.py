@@ -9,11 +9,12 @@ def build_referee_ruling(
     reason: str,
     detail: str,
     move_text: str | None = None,
+    speaker_name: str = "Gemma 4 Referee",
 ) -> dict[str, Any]:
     attempted = f" after {move_text!r}" if move_text else ""
     return {
         "role": "referee",
-        "speaker": "Gemma 4 Referee",
+        "speaker": speaker_name,
         "category": "ruling",
         "target": color,
         "message": (
@@ -21,6 +22,8 @@ def build_referee_ruling(
             "Reset, breathe, and submit one legal SAN move."
         ),
         "reason": reason,
+        "detail": detail,
+        "coaching_suggestion": "Reset, breathe, and submit one legal SAN move.",
     }
 
 
@@ -28,10 +31,11 @@ def build_referee_provider_error(
     *,
     color: str,
     detail: str,
+    speaker_name: str = "Gemma 4 Referee",
 ) -> dict[str, Any]:
     return {
         "role": "referee",
-        "speaker": "Gemma 4 Referee",
+        "speaker": speaker_name,
         "category": "system",
         "target": color,
         "message": (
@@ -47,6 +51,7 @@ def build_referee_finish(
     *,
     result: str | None,
     termination_reason: str | None,
+    speaker_name: str = "Gemma 4 Referee",
 ) -> dict[str, Any]:
     reason = termination_reason or "game_over"
     final_call = "Decision pending."
@@ -62,7 +67,7 @@ def build_referee_finish(
 
     return {
         "role": "referee",
-        "speaker": "Gemma 4 Referee",
+        "speaker": speaker_name,
         "category": "finish",
         "message": f"{final_call} Official ruling: {reason}.",
         "result": result,
