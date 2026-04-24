@@ -8,6 +8,7 @@ from typing import Any
 
 from lexichess.chess import ChessBoard
 from lexichess.config import AppSettings, SeatController
+from lexichess.interactive.banter import BanterService, DeterministicBanterService
 from lexichess.interactive.referee import (
     DeterministicRefereeService,
     RefereeService,
@@ -21,10 +22,6 @@ from lexichess.tournament.prompts import (
     build_invalid_move_retry_prompt,
 )
 from lexichess.tournament.replay import accepted_san_moves
-from lexichess.interactive.transcripts import (
-    build_finish_banter,
-    build_player_banter,
-)
 
 ProviderBuilder = Callable[..., MoveProvider]
 
@@ -56,6 +53,7 @@ class InteractiveGameRuntime:
         *,
         provider_builder: ProviderBuilder | None = None,
         referee_service: RefereeService | None = None,
+        banter_service: BanterService | None = None,
         max_correction_attempts: int = 1,
     ) -> None:
         self.repository = repository
@@ -64,6 +62,7 @@ class InteractiveGameRuntime:
         self.referee_service = referee_service or DeterministicRefereeService(
             speaker_name=settings.referee.speaker_name
         )
+        self.banter_service = banter_service or DeterministicBanterService()
         self.max_correction_attempts = max_correction_attempts
 
     def advance_once(self, game_id: int) -> LiveAdvanceResult:
@@ -216,15 +215,22 @@ class InteractiveGameRuntime:
         if board.is_game_over():
             self._finish_from_board(game_id, board)
         elif self._banter_enabled(game):
-            self._emit_player_banter(
+            banter_payload = self.banter_service.move_banter(
                 game_id=game_id,
                 color=normalized_color,
-                payload=build_player_banter(
-                    color=normalized_color,
-                    speaker=str(display_name),
-                    move=normalized_move,
+                speaker=str(display_name),
+                opponent=self._seat_speaker_name(
+                    game_id, self._opponent_color(normalized_color)
                 ),
+                move=normalized_move,
+                fen=board.fen,
             )
+            if banter_payload is not None:
+                self._emit_player_banter(
+                    game_id=game_id,
+                    color=normalized_color,
+                    payload=banter_payload,
+                )
         return event
 
     def _run_model_turn(
@@ -346,18 +352,25 @@ class InteractiveGameRuntime:
                     },
                 )
                 if self._banter_enabled(self._require_game(game_id)):
-                    self._emit_player_banter(
+                    banter_payload = self.banter_service.move_banter(
                         game_id=game_id,
                         color=color,
-                        payload=build_player_banter(
-                            color=color,
-                            speaker=str(
-                                seat.get("display_name")
-                                or f"{provider.provider_name}:{provider.model}"
-                            ),
-                            move=normalized_move,
+                        speaker=str(
+                            seat.get("display_name")
+                            or f"{provider.provider_name}:{provider.model}"
                         ),
+                        opponent=self._seat_speaker_name(
+                            game_id, self._opponent_color(color)
+                        ),
+                        move=normalized_move,
+                        fen=board.fen,
                     )
+                    if banter_payload is not None:
+                        self._emit_player_banter(
+                            game_id=game_id,
+                            color=color,
+                            payload=banter_payload,
+                        )
                 if board.is_game_over():
                     return self._finish_from_board(game_id, board)
                 return LiveAdvanceResult(
@@ -561,7 +574,12 @@ class InteractiveGameRuntime:
                 fen=board.fen,
             ),
         )
-        finish_banter = self._finish_banter_payload(game_id=game_id, result=result)
+        finish_banter = self._finish_banter_payload(
+            game_id=game_id,
+            result=result,
+            termination_reason=termination_reason,
+            fen=board.fen,
+        )
         if finish_banter is not None:
             self._emit_player_banter(
                 game_id=game_id,
@@ -603,7 +621,12 @@ class InteractiveGameRuntime:
                 fen=board.fen,
             ),
         )
-        finish_banter = self._finish_banter_payload(game_id=game_id, result=result)
+        finish_banter = self._finish_banter_payload(
+            game_id=game_id,
+            result=result,
+            termination_reason=termination_reason,
+            fen=board.fen,
+        )
         if finish_banter is not None:
             self._emit_player_banter(
                 game_id=game_id,
@@ -757,16 +780,46 @@ class InteractiveGameRuntime:
         *,
         game_id: int,
         result: str | None,
+        termination_reason: str | None = None,
+        fen: str = "",
     ) -> dict[str, Any] | None:
-        if result == "1-0":
-            winner = self._seat_map(game_id)["white"].get("display_name") or "White"
-        elif result == "0-1":
-            winner = self._seat_map(game_id)["black"].get("display_name") or "Black"
-        else:
-            winner = None
-        return build_finish_banter(
-            winner=str(winner) if winner is not None else None, result=result
+        winner, loser = self._winner_and_loser(game_id, result)
+        return self.banter_service.finish(
+            game_id=game_id,
+            winner=winner,
+            loser=loser,
+            result=result,
+            termination_reason=termination_reason,
+            fen=fen,
         )
+
+    def _winner_and_loser(
+        self,
+        game_id: int,
+        result: str | None,
+    ) -> tuple[str | None, str | None]:
+        if result == "1-0":
+            return (
+                self._seat_speaker_name(game_id, "white"),
+                self._seat_speaker_name(game_id, "black"),
+            )
+        if result == "0-1":
+            return (
+                self._seat_speaker_name(game_id, "black"),
+                self._seat_speaker_name(game_id, "white"),
+            )
+        return None, None
+
+    def _seat_speaker_name(self, game_id: int, color: str) -> str:
+        seat = self._seat_map(game_id)[color]
+        return str(
+            seat.get("display_name")
+            or seat.get("claimed_by")
+            or f"{seat['provider']}:{seat['model']}"
+        )
+
+    def _opponent_color(self, color: str) -> str:
+        return "black" if color == "white" else "white"
 
 
 class LiveGameLoopManager:

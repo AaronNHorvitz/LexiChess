@@ -48,6 +48,56 @@ class SharedScriptProvider(MoveProvider):
         )
 
 
+class ScriptedBanterService:
+    def move_banter(
+        self,
+        *,
+        game_id: int,
+        color: str,
+        speaker: str,
+        opponent: str | None,
+        move: str,
+        fen: str,
+    ) -> dict[str, str]:
+        del game_id, fen
+        return {
+            "role": "player",
+            "speaker": speaker,
+            "category": "banter",
+            "target": opponent or "opponent",
+            "message": f"{speaker} says {move} landed right on {opponent}.",
+            "move": move,
+            "color": color,
+            "source": "model",
+            "provider": "ollama",
+            "model": "banter-bot",
+        }
+
+    def finish(
+        self,
+        *,
+        game_id: int,
+        winner: str | None,
+        loser: str | None,
+        result: str | None,
+        termination_reason: str | None,
+        fen: str,
+    ) -> dict[str, str] | None:
+        del game_id, loser, result, termination_reason, fen
+        if winner is None:
+            return None
+        return {
+            "role": "player",
+            "speaker": winner,
+            "category": "finish",
+            "target": "crowd",
+            "message": f"{winner} is already calling for the postgame mic.",
+            "source": "model",
+            "provider": "ollama",
+            "model": "banter-bot",
+        }
+
+
 def test_runtime_advances_model_turn_and_waits_for_human(tmp_path: Path) -> None:
     repository = SQLiteRepository(tmp_path / "live_runtime.db")
     repository.initialize()
@@ -256,6 +306,66 @@ def test_runtime_emits_referee_message_for_invalid_move(tmp_path: Path) -> None:
         if event["event_type"] == "referee_message"
     ]
     assert any("Reset, breathe" in payload["message"] for payload in referee_payloads)
+
+
+def test_runtime_uses_injected_banter_service_for_model_moves(tmp_path: Path) -> None:
+    repository = SQLiteRepository(tmp_path / "live_banter.db")
+    repository.initialize()
+    settings = AppSettings.from_env(
+        env={"LEXICHESS_DB_PATH": str(repository.database_path)},
+        dotenv_path=None,
+    )
+    outputs = {("ollama", "qwen3:8b"): ["MOVE: e4"]}
+
+    def fake_builder(
+        provider_name: str, settings: AppSettings, *, model: str | None = None
+    ) -> SharedScriptProvider:
+        del settings
+        resolved_model = model or "unknown"
+        return SharedScriptProvider(
+            provider_name, resolved_model, outputs[(provider_name, resolved_model)]
+        )
+
+    game_id = repository.create_game(
+        white_provider="ollama",
+        white_model="qwen3:8b",
+        black_provider="ollama",
+        black_model="qwen3:14b",
+        initial_fen=chess.STARTING_FEN,
+        mode="showmatch",
+        status="created",
+    )
+    repository.upsert_game_seat(
+        game_id=game_id,
+        color="white",
+        controller="model",
+        provider="ollama",
+        model="qwen3:8b",
+        display_name="Qwen Hero",
+        claimed_by=None,
+    )
+    repository.upsert_game_seat(
+        game_id=game_id,
+        color="black",
+        controller="model",
+        provider="ollama",
+        model="qwen3:14b",
+        display_name="Qwen Villain",
+        claimed_by=None,
+    )
+
+    runtime = InteractiveGameRuntime(
+        repository,
+        settings,
+        provider_builder=fake_builder,
+        banter_service=ScriptedBanterService(),
+    )
+
+    runtime.advance_once(game_id)
+    events = repository.list_game_events(game_id, event_types=("player_banter",))
+
+    assert events[0]["payload_json"]["source"] == "model"
+    assert "Qwen Villain" in events[0]["payload_json"]["message"]
 
 
 def test_live_loop_manager_runs_until_human_turn_and_can_stop(tmp_path: Path) -> None:

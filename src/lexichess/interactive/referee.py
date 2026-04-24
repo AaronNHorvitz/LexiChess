@@ -30,8 +30,7 @@ class RefereeService(Protocol):
         move_text: str | None,
         fen: str,
         legal_moves: tuple[str, ...],
-    ) -> dict[str, Any]:
-        ...
+    ) -> dict[str, Any]: ...
 
     def provider_error(
         self,
@@ -40,8 +39,7 @@ class RefereeService(Protocol):
         color: str,
         detail: str,
         fen: str,
-    ) -> dict[str, Any]:
-        ...
+    ) -> dict[str, Any]: ...
 
     def finish(
         self,
@@ -50,8 +48,7 @@ class RefereeService(Protocol):
         result: str | None,
         termination_reason: str | None,
         fen: str,
-    ) -> dict[str, Any]:
-        ...
+    ) -> dict[str, Any]: ...
 
 
 class DeterministicRefereeService:
@@ -341,9 +338,7 @@ def build_referee_service(
     *,
     provider_builder: ProviderBuilder | None = None,
 ) -> RefereeService:
-    fallback = DeterministicRefereeService(
-        speaker_name=settings.referee.speaker_name
-    )
+    fallback = DeterministicRefereeService(speaker_name=settings.referee.speaker_name)
     if not settings.referee.enabled:
         return fallback
     return ProviderBackedRefereeService(

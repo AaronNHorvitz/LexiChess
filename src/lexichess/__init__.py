@@ -2,6 +2,7 @@
 
 from lexichess.config import (
     AppSettings,
+    BanterSettings,
     EnvironmentProfile,
     GameMode,
     PersonaRole,
@@ -13,6 +14,7 @@ from lexichess.config import (
 
 __all__ = [
     "AppSettings",
+    "BanterSettings",
     "EnvironmentProfile",
     "GameMode",
     "PersonaRole",

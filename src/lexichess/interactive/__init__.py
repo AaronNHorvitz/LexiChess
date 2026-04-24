@@ -1,3 +1,9 @@
+from lexichess.interactive.banter import (
+    BanterService,
+    DeterministicBanterService,
+    ProviderBackedBanterService,
+    build_banter_service,
+)
 from lexichess.interactive.live import (
     InteractiveGameRuntime,
     LiveAdvanceResult,
@@ -12,12 +18,16 @@ from lexichess.interactive.referee import (
 from lexichess.interactive.service import InteractiveGameService
 
 __all__ = [
+    "BanterService",
+    "build_banter_service",
+    "DeterministicBanterService",
     "build_referee_service",
     "DeterministicRefereeService",
     "InteractiveGameRuntime",
     "InteractiveGameService",
     "LiveAdvanceResult",
     "LiveGameLoopManager",
+    "ProviderBackedBanterService",
     "ProviderBackedRefereeService",
     "RefereeService",
 ]

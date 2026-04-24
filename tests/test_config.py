@@ -83,6 +83,27 @@ def test_settings_parse_referee_configuration() -> None:
     assert settings.referee.allow_fallback is False
 
 
+def test_settings_parse_banter_configuration() -> None:
+    settings = AppSettings.from_env(
+        env={
+            "LEXICHESS_BANTER_ENABLED": "true",
+            "LEXICHESS_BANTER_PROVIDER": "ollama",
+            "LEXICHESS_BANTER_MODEL": "qwen3:14b",
+            "LEXICHESS_BANTER_TEMPERATURE": "0.85",
+            "LEXICHESS_BANTER_MAX_OUTPUT_TOKENS": "88",
+            "LEXICHESS_BANTER_ALLOW_FALLBACK": "false",
+        },
+        dotenv_path=None,
+    )
+
+    assert settings.banter.enabled is True
+    assert settings.banter.provider is ProviderName.OLLAMA
+    assert settings.banter.model == "qwen3:14b"
+    assert settings.banter.temperature == 0.85
+    assert settings.banter.max_output_tokens == 88
+    assert settings.banter.allow_fallback is False
+
+
 def test_settings_export_redacts_secrets_by_default() -> None:
     settings = AppSettings.from_env(
         env={
@@ -94,6 +115,7 @@ def test_settings_export_redacts_secrets_by_default() -> None:
     payload = settings.to_dict()
 
     assert payload["ollama"]["api_key"] == "***REDACTED***"
+    assert payload["banter"]["enabled"] is True
 
 
 def test_settings_include_runtime_retry_and_stockfish_configuration() -> None:

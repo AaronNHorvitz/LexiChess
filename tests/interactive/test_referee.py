@@ -140,4 +140,7 @@ def test_deterministic_referee_service_sets_payload_contract() -> None:
     assert payload["category"] == "ruling"
     assert payload["reason"] == "illegal_move"
     assert payload["detail"] == "'Qh9' is not a legal move."
-    assert payload["coaching_suggestion"] == "Reset, breathe, and submit one legal SAN move."
+    assert (
+        payload["coaching_suggestion"]
+        == "Reset, breathe, and submit one legal SAN move."
+    )

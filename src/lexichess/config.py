@@ -85,6 +85,16 @@ class RefereeSettings:
 
 
 @dataclass(frozen=True, slots=True)
+class BanterSettings:
+    enabled: bool = True
+    provider: ProviderName = ProviderName.OLLAMA
+    model: str = "qwen3:8b"
+    temperature: float = 0.9
+    max_output_tokens: int = 72
+    allow_fallback: bool = True
+
+
+@dataclass(frozen=True, slots=True)
 class LoggingSettings:
     level: str = "INFO"
     json: bool = False
@@ -127,6 +137,7 @@ class AppSettings:
     interactive_mode: InteractiveModeSettings
     character_mode: CharacterModeSettings
     referee: RefereeSettings
+    banter: BanterSettings
     ollama: OllamaSettings
     stockfish: StockfishSettings
 
@@ -244,6 +255,30 @@ class AppSettings:
                     True,
                 ),
             ),
+            banter=BanterSettings(
+                enabled=_parse_bool(raw.get("LEXICHESS_BANTER_ENABLED"), True),
+                provider=ProviderName(
+                    raw.get("LEXICHESS_BANTER_PROVIDER", ProviderName.OLLAMA)
+                    .strip()
+                    .lower()
+                ),
+                model=_optional_str(raw.get("LEXICHESS_BANTER_MODEL"))
+                or model_override
+                or _optional_str(raw.get("OLLAMA_MODEL"))
+                or "qwen3:8b",
+                temperature=_parse_float(
+                    raw.get("LEXICHESS_BANTER_TEMPERATURE"),
+                    0.9,
+                ),
+                max_output_tokens=_parse_int(
+                    raw.get("LEXICHESS_BANTER_MAX_OUTPUT_TOKENS"),
+                    72,
+                ),
+                allow_fallback=_parse_bool(
+                    raw.get("LEXICHESS_BANTER_ALLOW_FALLBACK"),
+                    True,
+                ),
+            ),
             ollama=OllamaSettings(
                 host=raw.get("OLLAMA_HOST", "http://localhost:11434").rstrip("/"),
                 model=model_override
@@ -321,6 +356,14 @@ class AppSettings:
                 "temperature": self.referee.temperature,
                 "max_output_tokens": self.referee.max_output_tokens,
                 "allow_fallback": self.referee.allow_fallback,
+            },
+            "banter": {
+                "enabled": self.banter.enabled,
+                "provider": self.banter.provider.value,
+                "model": self.banter.model,
+                "temperature": self.banter.temperature,
+                "max_output_tokens": self.banter.max_output_tokens,
+                "allow_fallback": self.banter.allow_fallback,
             },
             "ollama": {
                 "host": self.ollama.host,

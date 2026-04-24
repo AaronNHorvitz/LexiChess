@@ -21,6 +21,7 @@ from lexichess.interactive import (
     InteractiveGameRuntime,
     InteractiveGameService,
     LiveGameLoopManager,
+    build_banter_service,
     build_referee_service,
 )
 from lexichess.storage import SQLiteRepository
@@ -39,10 +40,12 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     repository = SQLiteRepository(resolved_settings.database_path)
     repository.initialize()
     interactive_service = InteractiveGameService(repository, resolved_settings)
+    banter_service = build_banter_service(resolved_settings)
     referee_service = build_referee_service(resolved_settings)
     interactive_runtime = InteractiveGameRuntime(
         repository,
         resolved_settings,
+        banter_service=banter_service,
         referee_service=referee_service,
     )
     live_manager = LiveGameLoopManager(interactive_runtime, repository)
