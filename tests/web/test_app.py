@@ -481,6 +481,35 @@ def test_web_app_exposes_api_and_spectator_pages(
         == clip_manifest[0]["clip_id"]
     )
 
+    moderation_queue = client.get("/api/moderation/queue")
+    assert moderation_queue.status_code == 200
+    assert any(
+        item["event_type"] == "showmatch_script" for item in moderation_queue.json()
+    )
+
+    suppressed_item = next(
+        item
+        for item in moderation_queue.json()
+        if item["event_type"] == "showmatch_script"
+    )
+    suppress_response = client.post(
+        f"/api/moderation/queue/{suppressed_item['id']}/resolve",
+        json={"action": "suppress", "moderator_name": "operator"},
+    )
+    assert suppress_response.status_code == 200
+    assert suppress_response.json()["item"]["status"] == "suppressed"
+
+    filtered_featured = client.get("/api/showmatches/featured")
+    assert filtered_featured.status_code == 200
+    assert suppressed_item["source_event_id"] not in [
+        event["id"] for event in filtered_featured.json()["showmatch_events"]
+    ]
+    assert suppressed_item["source_event_id"] not in [
+        entry["source_event_id"]
+        for entry in filtered_featured.json()["broadcast_timeline"]
+        if entry["source_event_id"] is not None
+    ]
+
     section_update = client.post(
         "/api/showmatches/control/sections",
         json={"enabled_sections": ["highlights", "audio_sync", "clips"]},
@@ -535,3 +564,8 @@ def test_web_app_exposes_api_and_spectator_pages(
     assert control_page.status_code == 200
     assert "Broadcast Control" in control_page.text
     assert "Update Featured Game" in control_page.text
+
+    moderation_page = client.get("/moderation/queue")
+    assert moderation_page.status_code == 200
+    assert "Moderation Queue" in moderation_page.text
+    assert "Suppress" in moderation_page.text

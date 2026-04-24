@@ -267,6 +267,32 @@ tbody tr:last-child td {
   background: linear-gradient(135deg, var(--signal), var(--brand));
 }
 
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+
+.action-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.2rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid rgba(20, 75, 61, 0.18);
+  background: rgba(20, 75, 61, 0.08);
+  color: var(--brand);
+  font-family: "Trebuchet MS", "Gill Sans", "Gill Sans MT", sans-serif;
+}
+
+.action-link:hover {
+  border-color: rgba(182, 60, 45, 0.35);
+  background: rgba(182, 60, 45, 0.08);
+  color: var(--signal);
+}
+
 .list-card {
   display: block;
   padding: 0.95rem 1rem;

@@ -18,6 +18,7 @@ DEFAULT_BROADCAST_ENABLED_SECTIONS = (
     "clips",
     "timeline",
 )
+MODERATION_RESOLUTION_STATUSES = ("pending", "approved", "suppressed", "escalated")
 
 
 class SQLiteRepository:
@@ -1031,6 +1032,121 @@ class SQLiteRepository:
             connection.commit()
         return self.get_broadcast_controls()
 
+    def enqueue_moderation_item(
+        self,
+        *,
+        game_id: int,
+        source_event_id: int | None,
+        event_type: str,
+        speaker: str | None,
+        message: str,
+        severity: str,
+        reason_tags: Sequence[str],
+    ) -> int:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO moderation_queue (
+                    game_id,
+                    source_event_id,
+                    event_type,
+                    speaker,
+                    message,
+                    severity,
+                    reason_tags_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    game_id,
+                    source_event_id,
+                    event_type,
+                    speaker,
+                    message,
+                    severity,
+                    _dump_json({"reason_tags": list(reason_tags)}),
+                ),
+            )
+            connection.commit()
+            return _lastrowid(cursor)
+
+    def list_moderation_items(
+        self,
+        *,
+        statuses: Sequence[str] | None = None,
+        game_id: int | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        where_parts: list[str] = []
+        params: list[Any] = []
+        if statuses:
+            placeholders = ", ".join("?" for _ in statuses)
+            where_parts.append(f"status IN ({placeholders})")
+            params.extend(statuses)
+        if game_id is not None:
+            where_parts.append("game_id = ?")
+            params.append(game_id)
+        where_clause = f"WHERE {' AND '.join(where_parts)}" if where_parts else ""
+        params.append(limit)
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT * FROM moderation_queue
+                {where_clause}
+                ORDER BY id DESC
+                LIMIT ?
+                """,
+                tuple(params),
+            ).fetchall()
+        return [_moderation_row(row) for row in rows]
+
+    def get_moderation_item(self, moderation_id: int) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM moderation_queue
+                WHERE id = ?
+                """,
+                (moderation_id,),
+            ).fetchone()
+        return _moderation_row(row) if row else None
+
+    def resolve_moderation_item(
+        self,
+        moderation_id: int,
+        *,
+        status: str,
+        resolution_action: str,
+        moderator_name: str | None = None,
+        resolution_note: str | None = None,
+    ) -> dict[str, Any]:
+        if status not in MODERATION_RESOLUTION_STATUSES:
+            raise ValueError(f"Unsupported moderation status: {status}")
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE moderation_queue
+                SET status = ?,
+                    resolution_action = ?,
+                    moderator_name = ?,
+                    resolution_note = ?,
+                    updated_at = CURRENT_TIMESTAMP,
+                    reviewed_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (
+                    status,
+                    resolution_action,
+                    moderator_name,
+                    resolution_note,
+                    moderation_id,
+                ),
+            )
+            connection.commit()
+        item = self.get_moderation_item(moderation_id)
+        if item is None:
+            raise LookupError(f"Moderation item {moderation_id} not found.")
+        return item
+
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.database_path)
         connection.row_factory = sqlite3.Row
@@ -1119,6 +1235,17 @@ def _broadcast_controls_row(row: sqlite3.Row) -> dict[str, Any]:
         list(enabled_sections_payload.get("enabled_sections", []))
         if enabled_sections_payload is not None
         else list(DEFAULT_BROADCAST_ENABLED_SECTIONS)
+    )
+    return payload
+
+
+def _moderation_row(row: sqlite3.Row) -> dict[str, Any]:
+    payload = dict(row)
+    reason_tags_payload = _load_json(payload.pop("reason_tags_json"))
+    payload["reason_tags"] = (
+        list(reason_tags_payload.get("reason_tags", []))
+        if reason_tags_payload is not None
+        else []
     )
     return payload
 

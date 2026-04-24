@@ -48,6 +48,11 @@ BROADCAST_SECTION_CHOICES = (
     "clips",
     "timeline",
 )
+MODERATION_ACTION_TO_STATUS = {
+    "approve": "approved",
+    "suppress": "suppressed",
+    "escalate": "escalated",
+}
 
 
 def create_app(settings: AppSettings | None = None) -> FastAPI:
@@ -448,6 +453,37 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
             )
         }
 
+    @app.get("/api/moderation/queue")
+    def api_moderation_queue(
+        status: str | None = None,
+        game_id: int | None = Query(default=None, ge=1),
+        limit: int = Query(default=100, ge=1, le=500),
+    ) -> list[dict[str, Any]]:
+        statuses = _moderation_status_filter(status)
+        return repository.list_moderation_items(
+            statuses=statuses,
+            game_id=game_id,
+            limit=limit,
+        )
+
+    @app.post("/api/moderation/queue/{moderation_id}/resolve")
+    def api_resolve_moderation_item(
+        moderation_id: int,
+        payload: ModerationResolveRequest,
+    ) -> dict[str, Any]:
+        resolved_status = _moderation_status_for_action(payload.action)
+        try:
+            item = repository.resolve_moderation_item(
+                moderation_id,
+                status=resolved_status,
+                resolution_action=payload.action,
+                moderator_name=payload.moderator_name,
+                resolution_note=payload.resolution_note,
+            )
+        except (LookupError, ValueError) as exc:
+            raise _as_http_error(exc) from exc
+        return {"item": item}
+
     @app.get("/api/games/{game_id}/live")
     def api_game_live_status(game_id: int) -> dict[str, Any]:
         if repository.get_game(game_id) is None:
@@ -716,6 +752,34 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
             },
         )
 
+    @app.get("/moderation/queue", response_class=HTMLResponse)
+    def moderation_queue_page(
+        request: Request,
+        status: str = "pending",
+    ) -> HTMLResponse:
+        templates = _templates(request)
+        statuses = _moderation_status_filter(status)
+        return templates.TemplateResponse(
+            request,
+            "moderation_queue.html",
+            {
+                "request": request,
+                "title": "Moderation Queue",
+                "items": repository.list_moderation_items(
+                    statuses=statuses,
+                    limit=200,
+                ),
+                "selected_status": status,
+                "status_choices": [
+                    "pending",
+                    "approved",
+                    "suppressed",
+                    "escalated",
+                    "all",
+                ],
+            },
+        )
+
     @app.get("/showmatches/control/featured", include_in_schema=False)
     def showmatch_control_featured_form(
         featured_game_id: str = "",
@@ -786,6 +850,30 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
+    @app.get("/moderation/queue/{moderation_id}/resolve", include_in_schema=False)
+    def moderation_queue_resolve_form(
+        moderation_id: int,
+        action: str,
+        moderator_name: str = "operator",
+        resolution_note: str = "",
+        status_filter: str = "pending",
+    ) -> RedirectResponse:
+        resolved_status = _moderation_status_for_action(action)
+        try:
+            repository.resolve_moderation_item(
+                moderation_id,
+                status=resolved_status,
+                resolution_action=action,
+                moderator_name=moderator_name,
+                resolution_note=resolution_note or None,
+            )
+        except (LookupError, ValueError) as exc:
+            raise _as_http_error(exc) from exc
+        return RedirectResponse(
+            url=f"/moderation/queue?status={status_filter}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
     return app
 
 
@@ -794,6 +882,8 @@ def _game_bundle(
     interactive_service: InteractiveGameService,
     live_manager: LiveGameLoopManager,
     game_id: int,
+    *,
+    public_view: bool = False,
 ) -> dict[str, Any]:
     game = repository.get_game(game_id)
     if game is None:
@@ -804,22 +894,23 @@ def _game_bundle(
     bundle = build_game_bundle(game, turns, hallucinations, engine_analyses)
     bundle["seats"] = interactive_service.list_seats(game_id)
     all_events = interactive_service.list_events(game_id, limit=500)
-    bundle["events"] = all_events[-50:]
-    bundle["referee_events"] = interactive_service.list_events(
-        game_id,
-        event_types=("referee_message",),
-        limit=20,
+    moderation_items = repository.list_moderation_items(game_id=game_id, limit=500)
+    suppressed_event_ids = (
+        _suppressed_event_ids(moderation_items) if public_view else set()
     )
-    bundle["banter_events"] = interactive_service.list_events(
-        game_id,
-        event_types=("player_banter",),
-        limit=20,
-    )
-    bundle["showmatch_events"] = interactive_service.list_events(
-        game_id,
-        event_types=("showmatch_script",),
-        limit=20,
-    )
+    visible_events = [
+        event for event in all_events if int(event["id"]) not in suppressed_event_ids
+    ]
+    bundle["events"] = visible_events[-50:]
+    bundle["referee_events"] = [
+        event for event in visible_events if event["event_type"] == "referee_message"
+    ][-20:]
+    bundle["banter_events"] = [
+        event for event in visible_events if event["event_type"] == "player_banter"
+    ][-20:]
+    bundle["showmatch_events"] = [
+        event for event in visible_events if event["event_type"] == "showmatch_script"
+    ][-20:]
     bundle["quote_pin_events"] = [
         event
         for event in bundle["showmatch_events"]
@@ -830,7 +921,7 @@ def _game_bundle(
         game,
         turns,
         hallucinations,
-        all_events,
+        visible_events,
         seats=cast(list[dict[str, Any]], bundle["seats"]),
     ).to_dict()
     bundle["broadcast"] = broadcast
@@ -838,6 +929,8 @@ def _game_bundle(
     bundle["broadcast_highlights"] = broadcast["highlights"]
     bundle["clip_manifest"] = broadcast["clip_manifest"]
     bundle["audio_sync"] = broadcast["audio_sync"]
+    bundle["moderation_items"] = moderation_items
+    bundle["suppressed_event_ids"] = sorted(suppressed_event_ids)
     bundle["live"] = live_manager.status(game_id)
     return bundle
 
@@ -851,7 +944,13 @@ def _featured_showmatch_bundle(
     game_id = _featured_showmatch_game_id(repository, controls=controls)
     if game_id is None:
         return None
-    bundle = _game_bundle(repository, interactive_service, live_manager, game_id)
+    bundle = _game_bundle(
+        repository,
+        interactive_service,
+        live_manager,
+        game_id,
+        public_view=True,
+    )
     bundle["broadcast_controls"] = controls
     bundle["visible_sections"] = list(controls.get("enabled_sections", []))
     featured_clip_id = controls.get("featured_clip_id")
@@ -889,6 +988,34 @@ def _showmatch_games(repository: SQLiteRepository) -> list[dict[str, Any]]:
         for game in repository.list_games(limit=100)
         if str(game.get("mode") or "") == "showmatch"
     ]
+
+
+def _moderation_status_filter(status: str | None) -> tuple[str, ...] | None:
+    if status is None:
+        return None
+    normalized = status.strip().lower()
+    if not normalized or normalized == "all":
+        return None
+    if normalized not in {"pending", "approved", "suppressed", "escalated"}:
+        raise HTTPException(status_code=400, detail="Unsupported moderation status.")
+    return (normalized,)
+
+
+def _moderation_status_for_action(action: str) -> str:
+    normalized = action.strip().lower()
+    resolved_status = MODERATION_ACTION_TO_STATUS.get(normalized)
+    if resolved_status is None:
+        raise HTTPException(status_code=400, detail="Unsupported moderation action.")
+    return resolved_status
+
+
+def _suppressed_event_ids(moderation_items: list[dict[str, Any]]) -> set[int]:
+    return {
+        int(item["source_event_id"])
+        for item in moderation_items
+        if item.get("status") == "suppressed"
+        and item.get("source_event_id") is not None
+    }
 
 
 def _tournament_bundle(
@@ -993,6 +1120,12 @@ class FeaturedClipRequest(BaseModel):
 
 class BroadcastSectionRequest(BaseModel):
     enabled_sections: list[str] = Field(default_factory=list)
+
+
+class ModerationResolveRequest(BaseModel):
+    action: str
+    moderator_name: str | None = None
+    resolution_note: str | None = None
 
 
 class SeatClaimRequest(BaseModel):

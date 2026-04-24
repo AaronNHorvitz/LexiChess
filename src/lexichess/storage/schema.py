@@ -237,8 +237,43 @@ CREATE TABLE IF NOT EXISTS broadcast_controls (
 );
 """
 
+MODERATION_QUEUE_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS moderation_queue (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    source_event_id INTEGER REFERENCES game_events(id) ON DELETE SET NULL,
+    event_type TEXT NOT NULL,
+    speaker TEXT,
+    message TEXT NOT NULL,
+    severity TEXT NOT NULL,
+    reason_tags_json TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    resolution_action TEXT,
+    moderator_name TEXT,
+    resolution_note TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    reviewed_at TEXT
+);
+"""
+
 RATINGS_SLUG_INDEX_SQL = """
 CREATE INDEX IF NOT EXISTS idx_ratings_competitor_slug ON ratings(competitor_slug, id DESC);
+"""
+
+BROADCAST_CONTROL_UPDATED_AT_INDEX_SQL = """
+CREATE INDEX IF NOT EXISTS idx_broadcast_controls_updated_at
+ON broadcast_controls(updated_at DESC);
+"""
+
+MODERATION_QUEUE_STATUS_INDEX_SQL = """
+CREATE INDEX IF NOT EXISTS idx_moderation_queue_status
+ON moderation_queue(status, id DESC);
+"""
+
+MODERATION_QUEUE_GAME_INDEX_SQL = """
+CREATE INDEX IF NOT EXISTS idx_moderation_queue_game_id
+ON moderation_queue(game_id, id DESC);
 """
 
 BASE_SCHEMA_STATEMENTS = (
@@ -253,6 +288,7 @@ BASE_SCHEMA_STATEMENTS = (
     TOURNAMENT_PAIRING_TABLE_SQL,
     RATINGS_TABLE_SQL,
     BROADCAST_CONTROL_TABLE_SQL,
+    MODERATION_QUEUE_TABLE_SQL,
     TURNS_GAME_INDEX_SQL,
     GAME_SEATS_GAME_INDEX_SQL,
     GAME_EVENTS_GAME_INDEX_SQL,
@@ -264,6 +300,9 @@ BASE_SCHEMA_STATEMENTS = (
     TOURNAMENT_PAIRINGS_TOURNAMENT_INDEX_SQL,
     TOURNAMENT_PAIRINGS_STATUS_INDEX_SQL,
     RATINGS_SLUG_INDEX_SQL,
+    BROADCAST_CONTROL_UPDATED_AT_INDEX_SQL,
+    MODERATION_QUEUE_STATUS_INDEX_SQL,
+    MODERATION_QUEUE_GAME_INDEX_SQL,
 )
 
 GAME_MIGRATION_COLUMNS = {

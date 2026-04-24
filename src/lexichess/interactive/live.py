@@ -9,6 +9,7 @@ from typing import Any
 from lexichess.chess import ChessBoard
 from lexichess.config import AppSettings, SeatController
 from lexichess.interactive.banter import BanterService, DeterministicBanterService
+from lexichess.interactive.moderation import moderation_candidate_for_event
 from lexichess.interactive.referee import (
     DeterministicRefereeService,
     RefereeService,
@@ -818,15 +819,22 @@ class InteractiveGameRuntime:
         game_id: int,
         color: str | None,
         payload: dict[str, Any],
-    ) -> None:
+    ) -> dict[str, Any] | None:
         if not self._referee_enabled(self._require_game(game_id)):
-            return
-        self.repository.log_game_event(
+            return None
+        event = self.repository.log_game_event(
             game_id=game_id,
             event_type="referee_message",
             color=color,
             payload=payload,
         )
+        self._maybe_enqueue_moderation_item(
+            game_id=game_id,
+            event=event,
+            event_type="referee_message",
+            payload=payload,
+        )
+        return event
 
     def _emit_player_banter(
         self,
@@ -834,15 +842,22 @@ class InteractiveGameRuntime:
         game_id: int,
         color: str | None,
         payload: dict[str, Any],
-    ) -> None:
+    ) -> dict[str, Any] | None:
         if not self._banter_enabled(self._require_game(game_id)):
-            return
-        self.repository.log_game_event(
+            return None
+        event = self.repository.log_game_event(
             game_id=game_id,
             event_type="player_banter",
             color=color,
             payload=payload,
         )
+        self._maybe_enqueue_moderation_item(
+            game_id=game_id,
+            event=event,
+            event_type="player_banter",
+            payload=payload,
+        )
+        return event
 
     def _emit_showmatch_script(
         self,
@@ -853,12 +868,19 @@ class InteractiveGameRuntime:
     ) -> dict[str, Any] | None:
         if not self._showmatch_enabled(self._require_game(game_id)):
             return None
-        return self.repository.log_game_event(
+        event = self.repository.log_game_event(
             game_id=game_id,
             event_type="showmatch_script",
             color=color,
             payload=payload,
         )
+        self._maybe_enqueue_moderation_item(
+            game_id=game_id,
+            event=event,
+            event_type="showmatch_script",
+            payload=payload,
+        )
+        return event
 
     def _referee_enabled(self, game: dict[str, Any]) -> bool:
         return str(game.get("mode") or "benchmark") != "benchmark"
@@ -1134,6 +1156,30 @@ class InteractiveGameRuntime:
             if len(candidates) == 2:
                 break
         return tuple(candidates)
+
+    def _maybe_enqueue_moderation_item(
+        self,
+        *,
+        game_id: int,
+        event: dict[str, Any],
+        event_type: str,
+        payload: dict[str, Any],
+    ) -> None:
+        candidate = moderation_candidate_for_event(
+            event_type=event_type,
+            payload=payload,
+        )
+        if candidate is None:
+            return
+        self.repository.enqueue_moderation_item(
+            game_id=game_id,
+            source_event_id=int(event["id"]),
+            event_type=candidate.event_type,
+            speaker=candidate.speaker,
+            message=candidate.message,
+            severity=candidate.severity,
+            reason_tags=candidate.reason_tags,
+        )
 
 
 class LiveGameLoopManager:

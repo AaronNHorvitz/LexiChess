@@ -267,6 +267,45 @@ def test_repository_persists_broadcast_controls(tmp_path: Path) -> None:
     assert updated_clip["featured_clip_id"] == "clip:highlight:1"
 
 
+def test_repository_persists_and_resolves_moderation_items(tmp_path: Path) -> None:
+    repository = SQLiteRepository(tmp_path / "moderation.db")
+    repository.initialize()
+
+    game_id = repository.create_game(
+        white_provider="ollama",
+        white_model="qwen3:8b",
+        black_provider="ollama",
+        black_model="qwen3:14b",
+        initial_fen=chess.STARTING_FEN,
+        mode="showmatch",
+        status="running",
+    )
+    item_id = repository.enqueue_moderation_item(
+        game_id=game_id,
+        source_event_id=None,
+        event_type="player_banter",
+        speaker="Qwen Hero",
+        message="That king is getting roasted.",
+        severity="medium",
+        reason_tags=("player_banter", "roast_content"),
+    )
+
+    pending_items = repository.list_moderation_items(statuses=("pending",))
+    resolved_item = repository.resolve_moderation_item(
+        item_id,
+        status="suppressed",
+        resolution_action="suppress",
+        moderator_name="operator",
+        resolution_note="Too much heat for public preview.",
+    )
+
+    assert pending_items[0]["id"] == item_id
+    assert pending_items[0]["reason_tags"] == ["player_banter", "roast_content"]
+    assert resolved_item["status"] == "suppressed"
+    assert resolved_item["resolution_action"] == "suppress"
+    assert resolved_item["moderator_name"] == "operator"
+
+
 def test_repository_persists_tournament_entities_and_standings(tmp_path: Path) -> None:
     repository = SQLiteRepository(tmp_path / "tournaments.db")
     repository.initialize()

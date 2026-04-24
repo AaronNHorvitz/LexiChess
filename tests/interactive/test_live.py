@@ -632,6 +632,72 @@ def test_runtime_emits_showmatch_script_events(tmp_path: Path) -> None:
     assert "Qwen Villain" in events[1]["payload_json"]["message"]
 
 
+def test_runtime_enqueues_moderation_items_for_showmatch_content(
+    tmp_path: Path,
+) -> None:
+    repository = SQLiteRepository(tmp_path / "live_showmatch_moderation.db")
+    repository.initialize()
+    settings = AppSettings.from_env(
+        env={"LEXICHESS_DB_PATH": str(repository.database_path)},
+        dotenv_path=None,
+    )
+    outputs = {("ollama", "qwen3:8b"): ["MOVE: Nxh4"]}
+
+    def fake_builder(
+        provider_name: str, settings: AppSettings, *, model: str | None = None
+    ) -> SharedScriptProvider:
+        del settings
+        resolved_model = model or "unknown"
+        return SharedScriptProvider(
+            provider_name, resolved_model, outputs[(provider_name, resolved_model)]
+        )
+
+    game_id = repository.create_game(
+        white_provider="ollama",
+        white_model="qwen3:8b",
+        black_provider="ollama",
+        black_model="qwen3:14b",
+        initial_fen="rnbqkbnr/pppppppp/8/8/7q/5N2/PPPPPPPP/RNBQKB1R w KQkq - 0 2",
+        mode="showmatch",
+        status="created",
+    )
+    repository.upsert_game_seat(
+        game_id=game_id,
+        color="white",
+        controller="model",
+        provider="ollama",
+        model="qwen3:8b",
+        display_name="Qwen Hero",
+        claimed_by=None,
+    )
+    repository.upsert_game_seat(
+        game_id=game_id,
+        color="black",
+        controller="model",
+        provider="ollama",
+        model="qwen3:14b",
+        display_name="Qwen Villain",
+        claimed_by=None,
+    )
+
+    runtime = InteractiveGameRuntime(
+        repository,
+        settings,
+        provider_builder=fake_builder,
+        showmatch_script_service=ScriptedShowmatchService(),
+    )
+
+    runtime.emit_pregame_intro(game_id)
+    runtime.advance_once(game_id)
+    moderation_items = repository.list_moderation_items(
+        statuses=("pending",),
+        game_id=game_id,
+    )
+
+    assert moderation_items
+    assert any(item["event_type"] == "showmatch_script" for item in moderation_items)
+
+
 def test_runtime_emits_postgame_showmatch_sequence_for_finished_game(
     tmp_path: Path,
 ) -> None:

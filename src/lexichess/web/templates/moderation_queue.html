@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero">
+  <div class="hero-copy">
+    <p class="eyebrow">Moderation Queue</p>
+    <h1>Review the arena before it goes fully public.</h1>
+    <p class="hero-text">
+      This queue collects roast-heavy showmatch copy, player banter, and referee lines so an operator can approve, suppress, or escalate them before they shape the featured public experience.
+    </p>
+  </div>
+  <div class="hero-stat-grid">
+    <article class="stat-card">
+      <span class="stat-label">Visible Filter</span>
+      <strong class="stat-value">{{ selected_status }}</strong>
+    </article>
+    <article class="stat-card">
+      <span class="stat-label">Queue Items</span>
+      <strong class="stat-value">{{ items|length }}</strong>
+    </article>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-heading">
+    <h2>Status Filter</h2>
+  </div>
+  <div class="list-stack">
+    {% for status_choice in status_choices %}
+    <a class="list-card" href="{{ request.url_for('moderation_queue_page') }}?status={{ status_choice }}">
+      <strong>{{ status_choice|title }}</strong>
+      <span>Show {{ status_choice }} moderation items.</span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-heading">
+    <h2>Pending Review</h2>
+  </div>
+  <div class="list-stack">
+    {% for item in items %}
+    <div class="list-card static-card">
+      <strong>#{{ item["id"] }} · {{ item["event_type"] }} · {{ item["severity"] }} · {{ item["status"] }}</strong>
+      <span>Game #{{ item["game_id"] }} · {{ item["speaker"] or "Unknown speaker" }}</span>
+      <span>{{ item["message"] }}</span>
+      <span>Reasons: {{ item["reason_tags"]|join(", ") if item["reason_tags"] else "-" }}</span>
+      <div class="action-row">
+        <a class="action-link" href="{{ request.url_for('moderation_queue_resolve_form', moderation_id=item['id']) }}?action=approve&status_filter={{ selected_status }}">Approve</a>
+        <a class="action-link" href="{{ request.url_for('moderation_queue_resolve_form', moderation_id=item['id']) }}?action=suppress&status_filter={{ selected_status }}">Suppress</a>
+        <a class="action-link" href="{{ request.url_for('moderation_queue_resolve_form', moderation_id=item['id']) }}?action=escalate&status_filter={{ selected_status }}">Escalate</a>
+      </div>
+    </div>
+    {% else %}
+    <p class="empty-copy">No moderation items match this filter.</p>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
