@@ -8,8 +8,13 @@ from pathlib import Path
 from typing import Any, cast
 
 import chess
-from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, PlainTextResponse, StreamingResponse
+from fastapi import FastAPI, HTTPException, Query, Request, status
+from fastapi.responses import (
+    HTMLResponse,
+    PlainTextResponse,
+    RedirectResponse,
+    StreamingResponse,
+)
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
@@ -35,6 +40,14 @@ from lexichess.tournament.replay import build_game_bundle
 
 TEMPLATES_DIR = Path(__file__).with_name("templates")
 STATIC_DIR = Path(__file__).with_name("static")
+BROADCAST_SECTION_CHOICES = (
+    "highlights",
+    "quotes",
+    "showmatch_feed",
+    "audio_sync",
+    "clips",
+    "timeline",
+)
 
 
 def create_app(settings: AppSettings | None = None) -> FastAPI:
@@ -366,6 +379,75 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail="No featured showmatch found.")
         return bundle
 
+    @app.get("/api/showmatches/control")
+    def api_showmatch_control() -> dict[str, Any]:
+        controls = repository.get_broadcast_controls()
+        return {
+            "controls": controls,
+            "section_choices": list(BROADCAST_SECTION_CHOICES),
+            "showmatch_games": _showmatch_games(repository),
+        }
+
+    @app.post("/api/showmatches/control/featured")
+    def api_set_featured_showmatch(
+        payload: FeaturedShowmatchRequest,
+    ) -> dict[str, Any]:
+        if payload.featured_game_id is not None:
+            game = repository.get_game(payload.featured_game_id)
+            if game is None:
+                raise HTTPException(status_code=404, detail="Game not found.")
+            if str(game.get("mode") or "") != "showmatch":
+                raise HTTPException(
+                    status_code=400,
+                    detail="Only showmatch games can be featured.",
+                )
+        controls = repository.set_featured_showmatch(
+            featured_game_id=payload.featured_game_id
+        )
+        return {"controls": controls}
+
+    @app.post("/api/showmatches/control/clip")
+    def api_set_featured_clip(payload: FeaturedClipRequest) -> dict[str, Any]:
+        controls = repository.get_broadcast_controls()
+        featured_game_id = controls.get("featured_game_id")
+        if featured_game_id is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Set a featured showmatch before selecting a clip.",
+            )
+        featured_bundle = _game_bundle(
+            repository,
+            interactive_service,
+            live_manager,
+            int(featured_game_id),
+        )
+        clip_id = payload.featured_clip_id
+        if clip_id is not None and not any(
+            clip["clip_id"] == clip_id for clip in featured_bundle["clip_manifest"]
+        ):
+            raise HTTPException(status_code=400, detail="Clip not found for game.")
+        return {"controls": repository.set_featured_clip(featured_clip_id=clip_id)}
+
+    @app.post("/api/showmatches/control/sections")
+    def api_set_showmatch_sections(
+        payload: BroadcastSectionRequest,
+    ) -> dict[str, Any]:
+        invalid_sections = [
+            section
+            for section in payload.enabled_sections
+            if section not in BROADCAST_SECTION_CHOICES
+        ]
+        if invalid_sections:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported broadcast sections: {', '.join(invalid_sections)}",
+            )
+        return {
+            "controls": repository.set_broadcast_enabled_sections(
+                payload.enabled_sections
+            )
+        }
+
     @app.get("/api/games/{game_id}/live")
     def api_game_live_status(game_id: int) -> dict[str, Any]:
         if repository.get_game(game_id) is None:
@@ -613,6 +695,97 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
             },
         )
 
+    @app.get("/showmatches/control", response_class=HTMLResponse)
+    def showmatch_control_page(request: Request) -> HTMLResponse:
+        templates = _templates(request)
+        featured_bundle = _featured_showmatch_bundle(
+            repository,
+            interactive_service,
+            live_manager,
+        )
+        return templates.TemplateResponse(
+            request,
+            "showmatch_control.html",
+            {
+                "request": request,
+                "title": "Broadcast Control",
+                "controls": repository.get_broadcast_controls(),
+                "section_choices": list(BROADCAST_SECTION_CHOICES),
+                "showmatch_games": _showmatch_games(repository),
+                "featured_bundle": featured_bundle,
+            },
+        )
+
+    @app.get("/showmatches/control/featured", include_in_schema=False)
+    def showmatch_control_featured_form(
+        featured_game_id: str = "",
+    ) -> RedirectResponse:
+        normalized_game_id = featured_game_id.strip()
+        target_game_id: int | None = None
+        if normalized_game_id:
+            target_game_id = int(normalized_game_id)
+            game = repository.get_game(target_game_id)
+            if game is None or str(game.get("mode") or "") != "showmatch":
+                raise HTTPException(
+                    status_code=400,
+                    detail="Only existing showmatch games can be featured.",
+                )
+        repository.set_featured_showmatch(featured_game_id=target_game_id)
+        return RedirectResponse(
+            url="/showmatches/control",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    @app.get("/showmatches/control/clip", include_in_schema=False)
+    def showmatch_control_clip_form(
+        featured_clip_id: str = "",
+    ) -> RedirectResponse:
+        clip_id = featured_clip_id.strip() or None
+        controls = repository.get_broadcast_controls()
+        featured_game_id = controls.get("featured_game_id")
+        if clip_id is not None and featured_game_id is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Set a featured showmatch before selecting a clip.",
+            )
+        if clip_id is not None and featured_game_id is not None:
+            featured_bundle = _game_bundle(
+                repository,
+                interactive_service,
+                live_manager,
+                int(featured_game_id),
+            )
+            if not any(
+                clip["clip_id"] == clip_id for clip in featured_bundle["clip_manifest"]
+            ):
+                raise HTTPException(status_code=400, detail="Clip not found for game.")
+        repository.set_featured_clip(featured_clip_id=clip_id)
+        return RedirectResponse(
+            url="/showmatches/control",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    @app.get("/showmatches/control/sections", include_in_schema=False)
+    def showmatch_control_sections_form(
+        enabled_sections: list[str] | None = Query(default=None),
+    ) -> RedirectResponse:
+        selected_sections = enabled_sections or []
+        invalid_sections = [
+            section
+            for section in selected_sections
+            if section not in BROADCAST_SECTION_CHOICES
+        ]
+        if invalid_sections:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported broadcast sections: {', '.join(invalid_sections)}",
+            )
+        repository.set_broadcast_enabled_sections(selected_sections)
+        return RedirectResponse(
+            url="/showmatches/control",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
     return app
 
 
@@ -674,17 +847,48 @@ def _featured_showmatch_bundle(
     interactive_service: InteractiveGameService,
     live_manager: LiveGameLoopManager,
 ) -> dict[str, Any] | None:
-    game_id = _featured_showmatch_game_id(repository)
+    controls = repository.get_broadcast_controls()
+    game_id = _featured_showmatch_game_id(repository, controls=controls)
     if game_id is None:
         return None
-    return _game_bundle(repository, interactive_service, live_manager, game_id)
+    bundle = _game_bundle(repository, interactive_service, live_manager, game_id)
+    bundle["broadcast_controls"] = controls
+    bundle["visible_sections"] = list(controls.get("enabled_sections", []))
+    featured_clip_id = controls.get("featured_clip_id")
+    bundle["featured_clip"] = next(
+        (
+            clip
+            for clip in bundle["clip_manifest"]
+            if clip["clip_id"] == featured_clip_id
+        ),
+        None,
+    )
+    return bundle
 
 
-def _featured_showmatch_game_id(repository: SQLiteRepository) -> int | None:
+def _featured_showmatch_game_id(
+    repository: SQLiteRepository,
+    *,
+    controls: dict[str, Any] | None = None,
+) -> int | None:
+    resolved_controls = controls or repository.get_broadcast_controls()
+    featured_game_id = resolved_controls.get("featured_game_id")
+    if featured_game_id is not None:
+        game = repository.get_game(int(featured_game_id))
+        if game is not None and str(game.get("mode") or "") == "showmatch":
+            return int(featured_game_id)
     for game in repository.list_games(limit=200):
         if str(game.get("mode") or "") == "showmatch":
             return int(game["id"])
     return None
+
+
+def _showmatch_games(repository: SQLiteRepository) -> list[dict[str, Any]]:
+    return [
+        game
+        for game in repository.list_games(limit=100)
+        if str(game.get("mode") or "") == "showmatch"
+    ]
 
 
 def _tournament_bundle(
@@ -777,6 +981,18 @@ class GameCreateRequest(BaseModel):
     black_provider: ProviderName | None = None
     black_model: str | None = None
     black_display_name: str | None = None
+
+
+class FeaturedShowmatchRequest(BaseModel):
+    featured_game_id: int | None = None
+
+
+class FeaturedClipRequest(BaseModel):
+    featured_clip_id: str | None = None
+
+
+class BroadcastSectionRequest(BaseModel):
+    enabled_sections: list[str] = Field(default_factory=list)
 
 
 class SeatClaimRequest(BaseModel):

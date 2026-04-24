@@ -15,6 +15,9 @@
     <p class="subhead">
       <a href="{{ request.url_for('game_page', game_id=bundle.game['id']) }}">Open full game detail</a>
     </p>
+    <p class="subhead">
+      Visible sections: {{ bundle.visible_sections|join(", ") }}
+    </p>
   </div>
   <div class="hero-stat-grid">
     <article class="stat-card">
@@ -36,7 +39,25 @@
   </div>
 </section>
 
+{% if bundle.featured_clip %}
+<section class="panel">
+  <div class="panel-heading">
+    <h2>Pinned Clip</h2>
+  </div>
+  <div class="list-card static-card">
+    <strong>{{ bundle.featured_clip["title"] }}</strong>
+    <span>{{ bundle.featured_clip["summary"] }}</span>
+    <span>
+      {{ bundle.featured_clip["start_entry_id"] }} → {{ bundle.featured_clip["end_entry_id"] }}
+      · {{ bundle.featured_clip["recommended_duration_seconds"] }}s
+    </span>
+  </div>
+</section>
+{% endif %}
+
+{% if "highlights" in bundle.visible_sections or "quotes" in bundle.visible_sections %}
 <div class="panel-grid">
+  {% if "highlights" in bundle.visible_sections %}
   <section class="panel">
     <div class="panel-heading">
       <h2>Top Highlights</h2>
@@ -52,7 +73,9 @@
       {% endfor %}
     </div>
   </section>
+  {% endif %}
 
+  {% if "quotes" in bundle.visible_sections %}
   <section class="panel">
     <div class="panel-heading">
       <h2>Quote Pins</h2>
@@ -68,9 +91,13 @@
       {% endfor %}
     </div>
   </section>
+  {% endif %}
 </div>
+{% endif %}
 
+{% if "showmatch_feed" in bundle.visible_sections or "audio_sync" in bundle.visible_sections %}
 <div class="panel-grid">
+  {% if "showmatch_feed" in bundle.visible_sections %}
   <section class="panel">
     <div class="panel-heading">
       <h2>Showmatch Feed</h2>
@@ -86,7 +113,9 @@
       {% endfor %}
     </div>
   </section>
+  {% endif %}
 
+  {% if "audio_sync" in bundle.visible_sections %}
   <section class="panel">
     <div class="panel-heading">
       <h2>Audio Cue Sheet</h2>
@@ -102,8 +131,33 @@
       {% endfor %}
     </div>
   </section>
+  {% endif %}
 </div>
+{% endif %}
 
+{% if "clips" in bundle.visible_sections %}
+<section class="panel">
+  <div class="panel-heading">
+    <h2>Clip Manifest</h2>
+  </div>
+  <div class="list-stack">
+    {% for clip in bundle.clip_manifest[:8] %}
+    <div class="list-card static-card">
+      <strong>{{ clip["title"] }}</strong>
+      <span>{{ clip["summary"] }}</span>
+      <span>
+        {{ clip["start_entry_id"] }} → {{ clip["end_entry_id"] }}
+        · {{ clip["recommended_duration_seconds"] }}s
+      </span>
+    </div>
+    {% else %}
+    <p class="empty-copy">No clips generated yet.</p>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if "timeline" in bundle.visible_sections %}
 <section class="panel">
   <div class="panel-heading">
     <h2>Broadcast Timeline</h2>
@@ -119,6 +173,7 @@
     {% endfor %}
   </div>
 </section>
+{% endif %}
 {% else %}
 <section class="hero">
   <div class="hero-copy">

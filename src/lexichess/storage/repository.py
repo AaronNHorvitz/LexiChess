@@ -10,6 +10,15 @@ from lexichess.analysis import EngineAnalysis
 from lexichess.index.models import RatingSnapshot
 from lexichess.storage.schema import ensure_schema
 
+DEFAULT_BROADCAST_ENABLED_SECTIONS = (
+    "highlights",
+    "quotes",
+    "showmatch_feed",
+    "audio_sync",
+    "clips",
+    "timeline",
+)
+
 
 class SQLiteRepository:
     def __init__(self, database_path: str | Path) -> None:
@@ -916,6 +925,112 @@ class SQLiteRepository:
             ).fetchall()
         return [_rating_row(row) for row in rows]
 
+    def get_broadcast_controls(self) -> dict[str, Any]:
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM broadcast_controls
+                WHERE id = 1
+                """
+            ).fetchone()
+            if row is None:
+                connection.execute(
+                    """
+                    INSERT INTO broadcast_controls (
+                        id,
+                        featured_game_id,
+                        featured_clip_id,
+                        enabled_sections_json
+                    ) VALUES (1, NULL, NULL, ?)
+                    """,
+                    (
+                        _dump_json(
+                            {
+                                "enabled_sections": list(
+                                    DEFAULT_BROADCAST_ENABLED_SECTIONS
+                                )
+                            }
+                        ),
+                    ),
+                )
+                connection.commit()
+                row = connection.execute(
+                    """
+                    SELECT * FROM broadcast_controls
+                    WHERE id = 1
+                    """
+                ).fetchone()
+        if row is None:
+            raise RuntimeError("Broadcast controls row was not created.")
+        return _broadcast_controls_row(row)
+
+    def set_featured_showmatch(
+        self,
+        *,
+        featured_game_id: int | None,
+    ) -> dict[str, Any]:
+        current = self.get_broadcast_controls()
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE broadcast_controls
+                SET featured_game_id = ?,
+                    featured_clip_id = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = 1
+                """,
+                (
+                    featured_game_id,
+                    (
+                        None
+                        if current.get("featured_game_id") != featured_game_id
+                        else current.get("featured_clip_id")
+                    ),
+                ),
+            )
+            connection.commit()
+        return self.get_broadcast_controls()
+
+    def set_featured_clip(self, *, featured_clip_id: str | None) -> dict[str, Any]:
+        self.get_broadcast_controls()
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE broadcast_controls
+                SET featured_clip_id = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = 1
+                """,
+                (featured_clip_id,),
+            )
+            connection.commit()
+        return self.get_broadcast_controls()
+
+    def set_broadcast_enabled_sections(
+        self,
+        enabled_sections: Sequence[str],
+    ) -> dict[str, Any]:
+        unique_sections: list[str] = []
+        for section in enabled_sections:
+            normalized = str(section).strip()
+            if normalized and normalized not in unique_sections:
+                unique_sections.append(normalized)
+        if not unique_sections:
+            unique_sections = list(DEFAULT_BROADCAST_ENABLED_SECTIONS)
+        self.get_broadcast_controls()
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE broadcast_controls
+                SET enabled_sections_json = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = 1
+                """,
+                (_dump_json({"enabled_sections": unique_sections}),),
+            )
+            connection.commit()
+        return self.get_broadcast_controls()
+
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.database_path)
         connection.row_factory = sqlite3.Row
@@ -994,6 +1109,17 @@ def _engine_analysis_row(row: sqlite3.Row) -> dict[str, Any]:
 def _rating_row(row: sqlite3.Row) -> dict[str, Any]:
     payload = dict(row)
     payload["provisional"] = bool(payload["provisional"])
+    return payload
+
+
+def _broadcast_controls_row(row: sqlite3.Row) -> dict[str, Any]:
+    payload = dict(row)
+    enabled_sections_payload = _load_json(payload.pop("enabled_sections_json"))
+    payload["enabled_sections"] = (
+        list(enabled_sections_payload.get("enabled_sections", []))
+        if enabled_sections_payload is not None
+        else list(DEFAULT_BROADCAST_ENABLED_SECTIONS)
+    )
     return payload
 
 

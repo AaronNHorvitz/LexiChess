@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero">
+  <div class="hero-copy">
+    <p class="eyebrow">Broadcast Control</p>
+    <h1>Steer the featured arena event.</h1>
+    <p class="hero-text">
+      Pin the featured showmatch, choose a preferred clip, and toggle which broadcast sections are visible on the public featured-showmatch page.
+    </p>
+  </div>
+  <div class="hero-stat-grid">
+    <article class="stat-card">
+      <span class="stat-label">Showmatch Candidates</span>
+      <strong class="stat-value">{{ showmatch_games|length }}</strong>
+    </article>
+    <article class="stat-card">
+      <span class="stat-label">Featured Game</span>
+      <strong class="stat-value">{{ controls["featured_game_id"] or "auto" }}</strong>
+    </article>
+    <article class="stat-card">
+      <span class="stat-label">Pinned Clip</span>
+      <strong class="stat-value">{{ controls["featured_clip_id"] or "none" }}</strong>
+    </article>
+    <article class="stat-card">
+      <span class="stat-label">Enabled Sections</span>
+      <strong class="stat-value">{{ controls["enabled_sections"]|length }}</strong>
+    </article>
+  </div>
+</section>
+
+<div class="panel-grid">
+  <section class="panel">
+    <div class="panel-heading">
+      <h2>Featured Game</h2>
+    </div>
+    <form class="control-form" method="get" action="{{ request.url_for('showmatch_control_featured_form') }}">
+      <label class="control-option">
+        <input type="radio" name="featured_game_id" value="" {% if not controls["featured_game_id"] %}checked{% endif %}>
+        <span>Auto-pick latest showmatch</span>
+      </label>
+      {% for game in showmatch_games %}
+      <label class="control-option">
+        <input type="radio" name="featured_game_id" value="{{ game['id'] }}" {% if controls["featured_game_id"] == game["id"] %}checked{% endif %}>
+        <span>#{{ game["id"] }} · {{ game["white_model"] }} vs {{ game["black_model"] }} · {{ game["status"] }}</span>
+      </label>
+      {% else %}
+      <p class="empty-copy">No showmatch games exist yet.</p>
+      {% endfor %}
+      <button class="control-button" type="submit">Update Featured Game</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <div class="panel-heading">
+      <h2>Visible Sections</h2>
+    </div>
+    <form class="control-form" method="get" action="{{ request.url_for('showmatch_control_sections_form') }}">
+      {% for section in section_choices %}
+      <label class="control-option">
+        <input type="checkbox" name="enabled_sections" value="{{ section }}" {% if section in controls["enabled_sections"] %}checked{% endif %}>
+        <span>{{ section.replace("_", " ")|title }}</span>
+      </label>
+      {% endfor %}
+      <button class="control-button" type="submit">Update Visible Sections</button>
+    </form>
+  </section>
+</div>
+
+<div class="panel-grid">
+  <section class="panel">
+    <div class="panel-heading">
+      <h2>Pinned Clip</h2>
+    </div>
+    <form class="control-form" method="get" action="{{ request.url_for('showmatch_control_clip_form') }}">
+      <label class="control-option">
+        <input type="radio" name="featured_clip_id" value="" {% if not controls["featured_clip_id"] %}checked{% endif %}>
+        <span>No pinned clip</span>
+      </label>
+      {% if controls["featured_game_id"] and featured_bundle %}
+      {% for clip in featured_bundle.clip_manifest %}
+      <label class="control-option">
+        <input type="radio" name="featured_clip_id" value="{{ clip['clip_id'] }}" {% if controls["featured_clip_id"] == clip["clip_id"] %}checked{% endif %}>
+        <span>{{ clip["title"] }} · {{ clip["recommended_duration_seconds"] }}s</span>
+      </label>
+      {% else %}
+      <p class="empty-copy">The featured game has no clip manifest yet.</p>
+      {% endfor %}
+      {% else %}
+      <p class="empty-copy">Pin a specific featured showmatch before selecting a clip.</p>
+      {% endif %}
+      <button class="control-button" type="submit">Update Pinned Clip</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <div class="panel-heading">
+      <h2>Current Preview</h2>
+    </div>
+    {% if featured_bundle %}
+    <div class="list-stack">
+      <div class="list-card static-card">
+        <strong>#{{ featured_bundle.game["id"] }} · {{ featured_bundle.game["white_model"] }} vs {{ featured_bundle.game["black_model"] }}</strong>
+        <span>{{ featured_bundle.game["status"] }} · result {{ featured_bundle.game["result"] or "*" }}</span>
+      </div>
+      <div class="list-card static-card">
+        <strong>Highlights</strong>
+        <span>{{ featured_bundle.broadcast.summary.highlight_count }} detected</span>
+      </div>
+      <div class="list-card static-card">
+        <strong>Audio Cues</strong>
+        <span>{{ featured_bundle.broadcast.summary.audio_cue_count }} cues · {{ "%.1f"|format(featured_bundle.broadcast.summary.audio_duration_ms / 1000) }}s</span>
+      </div>
+    </div>
+    {% else %}
+    <p class="empty-copy">No featured showmatch is currently available.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

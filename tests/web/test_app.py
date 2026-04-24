@@ -454,6 +454,44 @@ def test_web_app_exposes_api_and_spectator_pages(
     assert featured_showmatch.json()["game"]["id"] == live_game_id
     assert featured_showmatch.json()["broadcast"]["summary"]["audio_cue_count"] >= 1
 
+    showmatch_control = client.get("/api/showmatches/control")
+    assert showmatch_control.status_code == 200
+    assert "highlights" in showmatch_control.json()["controls"]["enabled_sections"]
+
+    featured_control_update = client.post(
+        "/api/showmatches/control/featured",
+        json={"featured_game_id": live_game_id},
+    )
+    assert featured_control_update.status_code == 200
+    assert (
+        featured_control_update.json()["controls"]["featured_game_id"] == live_game_id
+    )
+
+    featured_bundle = client.get("/api/showmatches/featured").json()
+    clip_manifest = featured_bundle["clip_manifest"]
+    assert clip_manifest
+
+    clip_update = client.post(
+        "/api/showmatches/control/clip",
+        json={"featured_clip_id": clip_manifest[0]["clip_id"]},
+    )
+    assert clip_update.status_code == 200
+    assert (
+        clip_update.json()["controls"]["featured_clip_id"]
+        == clip_manifest[0]["clip_id"]
+    )
+
+    section_update = client.post(
+        "/api/showmatches/control/sections",
+        json={"enabled_sections": ["highlights", "audio_sync", "clips"]},
+    )
+    assert section_update.status_code == 200
+    assert section_update.json()["controls"]["enabled_sections"] == [
+        "highlights",
+        "audio_sync",
+        "clips",
+    ]
+
     live_stop = client.post(f"/api/games/{live_game_id}/live/stop")
     assert live_stop.status_code == 200
     assert live_stop.json()["stop_requested"] is True
@@ -490,3 +528,10 @@ def test_web_app_exposes_api_and_spectator_pages(
     assert "Featured Showmatch" in featured_page.text
     assert "Audio Cue Sheet" in featured_page.text
     assert "Qwen Hero" in featured_page.text
+    assert "Quote Pins" not in featured_page.text
+    assert "Clip Manifest" in featured_page.text
+
+    control_page = client.get("/showmatches/control")
+    assert control_page.status_code == 200
+    assert "Broadcast Control" in control_page.text
+    assert "Update Featured Game" in control_page.text

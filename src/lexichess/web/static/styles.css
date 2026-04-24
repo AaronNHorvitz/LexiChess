@@ -232,6 +232,41 @@ tbody tr:last-child td {
   gap: 0.8rem;
 }
 
+.control-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.control-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.8rem 0.95rem;
+  border: 1px solid var(--line);
+  border-radius: 0.95rem;
+  background: rgba(255, 252, 246, 0.72);
+}
+
+.control-option span {
+  color: var(--ink);
+}
+
+.control-button {
+  align-self: flex-start;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.75rem 1.1rem;
+  background: linear-gradient(135deg, var(--brand), var(--brand-soft));
+  color: #fff8ef;
+  font-family: "Trebuchet MS", "Gill Sans", "Gill Sans MT", sans-serif;
+  cursor: pointer;
+}
+
+.control-button:hover {
+  background: linear-gradient(135deg, var(--signal), var(--brand));
+}
+
 .list-card {
   display: block;
   padding: 0.95rem 1rem;

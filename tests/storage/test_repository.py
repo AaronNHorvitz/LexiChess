@@ -237,6 +237,36 @@ def test_repository_persists_game_seats_and_events(tmp_path: Path) -> None:
     }
 
 
+def test_repository_persists_broadcast_controls(tmp_path: Path) -> None:
+    repository = SQLiteRepository(tmp_path / "broadcast_controls.db")
+    repository.initialize()
+
+    showmatch_game_id = repository.create_game(
+        white_provider="ollama",
+        white_model="qwen3:8b",
+        black_provider="ollama",
+        black_model="qwen3:14b",
+        initial_fen=chess.STARTING_FEN,
+        mode="showmatch",
+        status="created",
+    )
+
+    default_controls = repository.get_broadcast_controls()
+    updated_featured = repository.set_featured_showmatch(
+        featured_game_id=showmatch_game_id
+    )
+    updated_sections = repository.set_broadcast_enabled_sections(
+        ("highlights", "audio_sync")
+    )
+    updated_clip = repository.set_featured_clip(featured_clip_id="clip:highlight:1")
+
+    assert default_controls["featured_game_id"] is None
+    assert default_controls["enabled_sections"]
+    assert updated_featured["featured_game_id"] == showmatch_game_id
+    assert updated_sections["enabled_sections"] == ["highlights", "audio_sync"]
+    assert updated_clip["featured_clip_id"] == "clip:highlight:1"
+
+
 def test_repository_persists_tournament_entities_and_standings(tmp_path: Path) -> None:
     repository = SQLiteRepository(tmp_path / "tournaments.db")
     repository.initialize()
