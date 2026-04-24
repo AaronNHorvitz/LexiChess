@@ -350,6 +350,22 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
         bundle = _game_bundle(repository, interactive_service, live_manager, game_id)
         return cast(list[dict[str, Any]], bundle["clip_manifest"])
 
+    @app.get("/api/games/{game_id}/audio-sync")
+    def api_game_audio_sync(game_id: int) -> list[dict[str, Any]]:
+        bundle = _game_bundle(repository, interactive_service, live_manager, game_id)
+        return cast(list[dict[str, Any]], bundle["audio_sync"])
+
+    @app.get("/api/showmatches/featured")
+    def api_featured_showmatch() -> dict[str, Any]:
+        bundle = _featured_showmatch_bundle(
+            repository,
+            interactive_service,
+            live_manager,
+        )
+        if bundle is None:
+            raise HTTPException(status_code=404, detail="No featured showmatch found.")
+        return bundle
+
     @app.get("/api/games/{game_id}/live")
     def api_game_live_status(game_id: int) -> dict[str, Any]:
         if repository.get_game(game_id) is None:
@@ -579,6 +595,24 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
             },
         )
 
+    @app.get("/showmatches/featured", response_class=HTMLResponse)
+    def featured_showmatch_page(request: Request) -> HTMLResponse:
+        bundle = _featured_showmatch_bundle(
+            repository,
+            interactive_service,
+            live_manager,
+        )
+        templates = _templates(request)
+        return templates.TemplateResponse(
+            request,
+            "featured_showmatch.html",
+            {
+                "request": request,
+                "title": "Featured Showmatch",
+                "bundle": bundle,
+            },
+        )
+
     return app
 
 
@@ -630,8 +664,27 @@ def _game_bundle(
     bundle["broadcast_timeline"] = broadcast["timeline"]
     bundle["broadcast_highlights"] = broadcast["highlights"]
     bundle["clip_manifest"] = broadcast["clip_manifest"]
+    bundle["audio_sync"] = broadcast["audio_sync"]
     bundle["live"] = live_manager.status(game_id)
     return bundle
+
+
+def _featured_showmatch_bundle(
+    repository: SQLiteRepository,
+    interactive_service: InteractiveGameService,
+    live_manager: LiveGameLoopManager,
+) -> dict[str, Any] | None:
+    game_id = _featured_showmatch_game_id(repository)
+    if game_id is None:
+        return None
+    return _game_bundle(repository, interactive_service, live_manager, game_id)
+
+
+def _featured_showmatch_game_id(repository: SQLiteRepository) -> int | None:
+    for game in repository.list_games(limit=200):
+        if str(game.get("mode") or "") == "showmatch":
+            return int(game["id"])
+    return None
 
 
 def _tournament_bundle(

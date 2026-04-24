@@ -238,4 +238,20 @@
     {% endfor %}
   </div>
 </section>
+
+<section class="panel">
+  <div class="panel-heading">
+    <h2>Audio Cue Sheet</h2>
+  </div>
+  <div class="list-stack">
+    {% for cue in bundle.audio_sync %}
+    <div class="list-card static-card">
+      <strong>{{ cue["speaker"] }} · {{ cue["voice_role"] }} · {{ cue["start_ms"] }}ms</strong>
+      <span>{{ cue["text"] }}</span>
+    </div>
+    {% else %}
+    <p class="empty-copy">No audio cues generated yet.</p>
+    {% endfor %}
+  </div>
+</section>
 {% endblock %}

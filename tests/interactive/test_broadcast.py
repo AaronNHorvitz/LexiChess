@@ -85,8 +85,15 @@ def test_build_broadcast_package_creates_timeline_highlights_and_clips() -> None
     assert "illegal_move" in highlight_categories
     assert "finish" in highlight_categories
     assert payload["clip_manifest"][0]["start_entry_id"].startswith(("turn:", "event:"))
+    assert payload["audio_sync"][0]["start_ms"] == 0
+    assert payload["audio_sync"][0]["end_ms"] > payload["audio_sync"][0]["start_ms"]
+    assert payload["audio_sync"][1]["start_ms"] > payload["audio_sync"][0]["end_ms"]
+    assert payload["audio_sync"][0]["voice_role"] == "narrator"
+    assert payload["audio_sync"][2]["voice_role"] == "narrator"
     assert payload["summary"] == {
         "timeline_count": 5,
         "highlight_count": 3,
         "clip_count": 3,
+        "audio_cue_count": 5,
+        "audio_duration_ms": payload["audio_sync"][-1]["end_ms"],
     }

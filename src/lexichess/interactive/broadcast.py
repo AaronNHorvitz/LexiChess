@@ -98,20 +98,55 @@ class BroadcastClip:
 
 
 @dataclass(slots=True)
+class BroadcastAudioCue:
+    cue_id: str
+    entry_id: str
+    speaker: str
+    text: str
+    voice_role: str
+    voice_hint: str
+    emphasis: str
+    start_ms: int
+    end_ms: int
+    duration_ms: int
+    tags: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "cue_id": self.cue_id,
+            "entry_id": self.entry_id,
+            "speaker": self.speaker,
+            "text": self.text,
+            "voice_role": self.voice_role,
+            "voice_hint": self.voice_hint,
+            "emphasis": self.emphasis,
+            "start_ms": self.start_ms,
+            "end_ms": self.end_ms,
+            "duration_ms": self.duration_ms,
+            "tags": list(self.tags),
+        }
+
+
+@dataclass(slots=True)
 class BroadcastPackage:
     timeline: list[BroadcastTimelineEntry]
     highlights: list[BroadcastHighlight]
     clips: list[BroadcastClip]
+    audio_cues: list[BroadcastAudioCue]
 
     def to_dict(self) -> dict[str, Any]:
+        total_audio_duration_ms = self.audio_cues[-1].end_ms if self.audio_cues else 0
         return {
             "timeline": [entry.to_dict() for entry in self.timeline],
             "highlights": [highlight.to_dict() for highlight in self.highlights],
             "clip_manifest": [clip.to_dict() for clip in self.clips],
+            "audio_sync": [cue.to_dict() for cue in self.audio_cues],
             "summary": {
                 "timeline_count": len(self.timeline),
                 "highlight_count": len(self.highlights),
                 "clip_count": len(self.clips),
+                "audio_cue_count": len(self.audio_cues),
+                "audio_duration_ms": total_audio_duration_ms,
             },
         }
 
@@ -149,7 +184,13 @@ def build_broadcast_package(
 
     highlights = _detect_highlights(timeline)
     clips = _build_clip_manifest(timeline, highlights)
-    return BroadcastPackage(timeline=timeline, highlights=highlights, clips=clips)
+    audio_cues = _build_audio_sync(game, timeline)
+    return BroadcastPackage(
+        timeline=timeline,
+        highlights=highlights,
+        clips=clips,
+        audio_cues=audio_cues,
+    )
 
 
 def _speaker_map(
@@ -457,6 +498,36 @@ def _build_clip_manifest(
     return clips
 
 
+def _build_audio_sync(
+    game: Mapping[str, Any],
+    timeline: Sequence[BroadcastTimelineEntry],
+) -> list[BroadcastAudioCue]:
+    game_id = _optional_int(game.get("id")) or 0
+    cues: list[BroadcastAudioCue] = []
+    current_start_ms = 0
+    for index, entry in enumerate(timeline, start=1):
+        text = entry.message.strip()
+        speaker = entry.speaker or _voice_hint_for_entry(entry)
+        duration_ms = _estimated_audio_duration_ms(text)
+        cues.append(
+            BroadcastAudioCue(
+                cue_id=f"cue:{index}",
+                entry_id=entry.entry_id,
+                speaker=speaker,
+                text=text,
+                voice_role=_voice_role_for_entry(entry),
+                voice_hint=f"game_{game_id}_{entry.entry_type}",
+                emphasis=_emphasis_for_entry(entry),
+                start_ms=current_start_ms,
+                end_ms=current_start_ms + duration_ms,
+                duration_ms=duration_ms,
+                tags=entry.tags,
+            )
+        )
+        current_start_ms += duration_ms + 180
+    return cues
+
+
 def _move_tags(move: str) -> tuple[str, ...]:
     tags: list[str] = []
     if "x" in move:
@@ -470,6 +541,48 @@ def _move_tags(move: str) -> tuple[str, ...]:
     if move.startswith("O-O"):
         tags.append("castle")
     return tuple(tags)
+
+
+def _voice_role_for_entry(entry: BroadcastTimelineEntry) -> str:
+    if entry.entry_type == "referee":
+        return "referee"
+    if entry.entry_type == "banter":
+        return "player"
+    if entry.entry_type == "showmatch":
+        return "announcer"
+    if entry.entry_type == "chat":
+        return "audience"
+    return "narrator"
+
+
+def _voice_hint_for_entry(entry: BroadcastTimelineEntry) -> str:
+    if entry.entry_type == "referee":
+        return "Referee"
+    if entry.entry_type in {"banter", "move"}:
+        return entry.color.title() if entry.color else "Player"
+    if entry.entry_type == "showmatch":
+        return "Arena Booth"
+    if entry.entry_type == "chat":
+        return "Audience"
+    return "Narrator"
+
+
+def _emphasis_for_entry(entry: BroadcastTimelineEntry) -> str:
+    if "checkmate" in entry.tags or entry.category == "finish":
+        return "crescendo"
+    if entry.entry_type == "hallucination" or entry.category == "illegal_move_callout":
+        return "sharp"
+    if entry.entry_type == "banter":
+        return "snark"
+    if entry.entry_type == "referee":
+        return "measured"
+    return "steady"
+
+
+def _estimated_audio_duration_ms(text: str) -> int:
+    word_count = max(len(text.split()), 1)
+    char_count = len(text)
+    return min(9000, max(1100, word_count * 260 + char_count * 12 + 240))
 
 
 def _string_tuple(value: Any) -> tuple[str, ...]:

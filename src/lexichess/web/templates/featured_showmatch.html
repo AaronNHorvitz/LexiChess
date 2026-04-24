@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% if bundle %}
+<section class="hero">
+  <div class="hero-copy">
+    <p class="eyebrow">Featured Showmatch</p>
+    <h1>{{ bundle.game["white_model"] }} vs {{ bundle.game["black_model"] }}</h1>
+    <p class="hero-text">
+      The latest featured arena event, complete with referee rulings, player banter, broadcast highlights, and a transcript-to-audio cue sheet for future voice playback.
+    </p>
+    <p class="subhead">
+      {{ bundle.game["status"] }} · result {{ bundle.game["result"] or "*" }} · {{ bundle.game["termination_reason"] or "-" }}
+    </p>
+    <p class="subhead">
+      <a href="{{ request.url_for('game_page', game_id=bundle.game['id']) }}">Open full game detail</a>
+    </p>
+  </div>
+  <div class="hero-stat-grid">
+    <article class="stat-card">
+      <span class="stat-label">Highlights</span>
+      <strong class="stat-value">{{ bundle.broadcast.summary.highlight_count }}</strong>
+    </article>
+    <article class="stat-card">
+      <span class="stat-label">Clips</span>
+      <strong class="stat-value">{{ bundle.broadcast.summary.clip_count }}</strong>
+    </article>
+    <article class="stat-card">
+      <span class="stat-label">Audio Cues</span>
+      <strong class="stat-value">{{ bundle.broadcast.summary.audio_cue_count }}</strong>
+    </article>
+    <article class="stat-card">
+      <span class="stat-label">Audio Runtime</span>
+      <strong class="stat-value">{{ "%.1f"|format(bundle.broadcast.summary.audio_duration_ms / 1000) }}s</strong>
+    </article>
+  </div>
+</section>
+
+<div class="panel-grid">
+  <section class="panel">
+    <div class="panel-heading">
+      <h2>Top Highlights</h2>
+    </div>
+    <div class="list-stack">
+      {% for item in bundle.broadcast_highlights[:5] %}
+      <div class="list-card static-card">
+        <strong>{{ item["title"] }} · {{ item["severity"] }}</strong>
+        <span>{{ item["summary"] }}</span>
+      </div>
+      {% else %}
+      <p class="empty-copy">No highlight moments detected yet.</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-heading">
+      <h2>Quote Pins</h2>
+    </div>
+    <div class="list-stack">
+      {% for event in bundle.quote_pin_events %}
+      <div class="list-card static-card">
+        <strong>{{ event["payload_json"]["speaker"] }} · #{{ event["payload_json"]["rank"] }}</strong>
+        <span>{{ event["payload_json"]["quoted_message"] }}</span>
+      </div>
+      {% else %}
+      <p class="empty-copy">No pinned quotes recorded yet.</p>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+
+<div class="panel-grid">
+  <section class="panel">
+    <div class="panel-heading">
+      <h2>Showmatch Feed</h2>
+    </div>
+    <div class="list-stack">
+      {% for event in bundle.showmatch_events %}
+      <div class="list-card static-card">
+        <strong>{{ event["payload_json"]["speaker"] }} · {{ event["payload_json"]["category"] }}</strong>
+        <span>{{ event["payload_json"]["message"] }}</span>
+      </div>
+      {% else %}
+      <p class="empty-copy">No showmatch script lines recorded yet.</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-heading">
+      <h2>Audio Cue Sheet</h2>
+    </div>
+    <div class="list-stack">
+      {% for cue in bundle.audio_sync[:10] %}
+      <div class="list-card static-card">
+        <strong>{{ cue["speaker"] }} · {{ cue["voice_role"] }} · {{ cue["start_ms"] }}ms</strong>
+        <span>{{ cue["text"] }}</span>
+      </div>
+      {% else %}
+      <p class="empty-copy">No audio cues generated yet.</p>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+
+<section class="panel">
+  <div class="panel-heading">
+    <h2>Broadcast Timeline</h2>
+  </div>
+  <div class="list-stack">
+    {% for entry in bundle.broadcast_timeline[:14] %}
+    <div class="list-card static-card">
+      <strong>#{{ entry["sequence"] }} · {{ entry["title"] }}</strong>
+      <span>{{ entry["message"] }}</span>
+    </div>
+    {% else %}
+    <p class="empty-copy">No broadcast timeline entries recorded yet.</p>
+    {% endfor %}
+  </div>
+</section>
+{% else %}
+<section class="hero">
+  <div class="hero-copy">
+    <p class="eyebrow">Featured Showmatch</p>
+    <h1>No featured showmatch yet.</h1>
+    <p class="hero-text">
+      As soon as the first showmatch is created, this page will promote it as the main arena event with highlights, quote pins, and audio-sync metadata.
+    </p>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

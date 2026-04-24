@@ -722,7 +722,7 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [ ] 17.23 Add replay audio scrubber
 - [ ] 17.24 Add advanced animated avatar gate for post-launch expansion
 
-## [ ] Sprint 18: Referee, Showmatches & Broadcast Engine (17/28 done)
+## [ ] Sprint 18: Referee, Showmatches & Broadcast Engine (19/28 done)
 
 ### [ ] 18. Referee, Showmatches & Broadcast Engine
 
@@ -744,8 +744,8 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [x] 18.16 Add highlight moment detection
 - [x] 18.17 Add clip manifest generation
 - [x] 18.18 Add broadcast timeline schema
-- [ ] 18.19 Add transcript-to-audio sync
-- [ ] 18.20 Add featured showmatch page
+- [x] 18.19 Add transcript-to-audio sync
+- [x] 18.20 Add featured showmatch page
 - [ ] 18.21 Add live broadcast control surface
 - [ ] 18.22 Add showmatch moderation queue
 - [ ] 18.23 Add live referee override controls

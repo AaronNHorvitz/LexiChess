@@ -5,6 +5,7 @@ from lexichess.interactive.banter import (
     build_banter_service,
 )
 from lexichess.interactive.broadcast import (
+    BroadcastAudioCue,
     BroadcastClip,
     BroadcastHighlight,
     BroadcastPackage,
@@ -33,6 +34,7 @@ from lexichess.interactive.service import InteractiveGameService
 
 __all__ = [
     "BanterService",
+    "BroadcastAudioCue",
     "BroadcastClip",
     "BroadcastHighlight",
     "BroadcastPackage",

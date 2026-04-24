@@ -422,6 +422,11 @@ def test_web_app_exposes_api_and_spectator_pages(
     assert clips_feed.status_code == 200
     assert clips_feed.json()[0]["focus_entry_id"].startswith("hallucination:")
 
+    audio_sync_feed = client.get(f"/api/games/{game_id}/audio-sync")
+    assert audio_sync_feed.status_code == 200
+    assert audio_sync_feed.json()[0]["start_ms"] == 0
+    assert audio_sync_feed.json()[0]["voice_role"] == "narrator"
+
     transcript_feed = client.get(f"/api/games/{live_game_id}/transcript")
     assert transcript_feed.status_code == 200
     transcript_types = [event["event_type"] for event in transcript_feed.json()]
@@ -443,6 +448,11 @@ def test_web_app_exposes_api_and_spectator_pages(
     )
     assert showmatch_stream.status_code == 200
     assert "event: showmatch_script" in showmatch_stream.text
+
+    featured_showmatch = client.get("/api/showmatches/featured")
+    assert featured_showmatch.status_code == 200
+    assert featured_showmatch.json()["game"]["id"] == live_game_id
+    assert featured_showmatch.json()["broadcast"]["summary"]["audio_cue_count"] >= 1
 
     live_stop = client.post(f"/api/games/{live_game_id}/live/stop")
     assert live_stop.status_code == 200
@@ -473,3 +483,10 @@ def test_web_app_exposes_api_and_spectator_pages(
     assert "Broadcast Highlights" in game_page.text
     assert "Clip Manifest" in game_page.text
     assert "Broadcast Timeline" in game_page.text
+    assert "Audio Cue Sheet" in game_page.text
+
+    featured_page = client.get("/showmatches/featured")
+    assert featured_page.status_code == 200
+    assert "Featured Showmatch" in featured_page.text
+    assert "Audio Cue Sheet" in featured_page.text
+    assert "Qwen Hero" in featured_page.text
