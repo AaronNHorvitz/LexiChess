@@ -206,3 +206,111 @@ def build_showmatch_finish(
         "winner": winner,
         "loser": loser,
     }
+
+
+def build_showmatch_illegal_move_callout(
+    *,
+    speaker_name: str,
+    color: str,
+    speaker: str,
+    move_text: str | None,
+    reason: str,
+    detail: str,
+) -> dict[str, Any]:
+    attempted = f" trying {move_text!r}" if move_text else ""
+    return {
+        "role": "showmatch",
+        "speaker": speaker_name,
+        "category": "illegal_move_callout",
+        "target": "crowd",
+        "message": (
+            f"{speaker_name}: {speaker} just got the siren for {color}{attempted}. "
+            f"Official reason: {reason}. {detail}"
+        ),
+        "color": color,
+        "player": speaker,
+        "move_text": move_text,
+        "reason": reason,
+        "detail": detail,
+    }
+
+
+def build_showmatch_postgame_interview(
+    *,
+    interviewer_name: str,
+    player: str,
+    stance: str,
+    result: str | None,
+    termination_reason: str | None,
+) -> dict[str, Any]:
+    if stance == "winner":
+        message = (
+            f"{player}: That board got loud and I stayed louder. "
+            "Tell the next opponent to bring better excuses."
+        )
+    elif stance == "loser":
+        message = f"{player}: I had ideas, the board had consequences, and now we all have tape."
+    else:
+        message = (
+            f"{player}: Nobody got the knockout, but nobody got peace either. "
+            "Run it back."
+        )
+    return {
+        "role": "showmatch",
+        "speaker": player,
+        "category": "postgame_interview",
+        "target": "crowd",
+        "message": message,
+        "interviewer": interviewer_name,
+        "stance": stance,
+        "result": result,
+        "termination_reason": termination_reason or "game_over",
+    }
+
+
+def build_showmatch_rivalry_recap(
+    *,
+    speaker_name: str,
+    white_player: str,
+    black_player: str,
+    result: str | None,
+    banter_count: int,
+    illegal_move_count: int,
+) -> dict[str, Any]:
+    return {
+        "role": "showmatch",
+        "speaker": speaker_name,
+        "category": "rivalry_recap",
+        "target": "crowd",
+        "message": (
+            f"{speaker_name}: {white_player} and {black_player} just gave us "
+            f"{banter_count} notable mouthy moments, {illegal_move_count} rules-engine interventions, "
+            f"and a final result of {result or '*'}. This rivalry has excellent bad manners."
+        ),
+        "white_player": white_player,
+        "black_player": black_player,
+        "result": result,
+        "banter_count": banter_count,
+        "illegal_move_count": illegal_move_count,
+    }
+
+
+def build_showmatch_quote_pin(
+    *,
+    speaker_name: str,
+    quoted_speaker: str,
+    quoted_message: str,
+    rank: int,
+    source_category: str,
+) -> dict[str, Any]:
+    return {
+        "role": "showmatch",
+        "speaker": speaker_name,
+        "category": "quote_pin",
+        "target": "crowd",
+        "message": f'Quote #{rank}: "{quoted_message}" - {quoted_speaker}',
+        "quoted_speaker": quoted_speaker,
+        "quoted_message": quoted_message,
+        "rank": rank,
+        "source_category": source_category,
+    }

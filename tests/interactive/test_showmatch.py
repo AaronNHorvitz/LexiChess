@@ -4,6 +4,7 @@ from lexichess.config import AppSettings
 from lexichess.interactive.showmatch import (
     DeterministicShowmatchScriptService,
     ProviderBackedShowmatchScriptService,
+    QuoteCandidate,
     build_showmatch_script_service,
 )
 from lexichess.llm.base import MoveProvider, ProviderCapabilities, ProviderHealthReport
@@ -66,13 +67,21 @@ def test_provider_backed_showmatch_service_uses_model_output() -> None:
         dotenv_path=None,
     )
 
-    service = ProviderBackedShowmatchScriptService(
-        settings,
-        provider_builder=lambda provider, settings, *, model=None: FakeShowmatchProvider(
+    def fake_builder(
+        provider: object,
+        settings: AppSettings,
+        *,
+        model: str | None = None,
+    ) -> FakeShowmatchProvider:
+        return FakeShowmatchProvider(
             provider_name=_provider_name(provider),
             model=model or settings.showmatch_scripts.model,
             message="Arena Booth says this opening already has bad intentions.",
-        ),
+        )
+
+    service = ProviderBackedShowmatchScriptService(
+        settings,
+        provider_builder=fake_builder,
     )
 
     payload = service.pregame_intro(
@@ -98,13 +107,21 @@ def test_showmatch_service_falls_back_when_provider_cannot_support_role() -> Non
         dotenv_path=None,
     )
 
-    service = build_showmatch_script_service(
-        settings,
-        provider_builder=lambda provider, settings, *, model=None: FakeShowmatchProvider(
+    def fake_builder(
+        provider: object,
+        settings: AppSettings,
+        *,
+        model: str | None = None,
+    ) -> FakeShowmatchProvider:
+        return FakeShowmatchProvider(
             provider_name=_provider_name(provider),
             model=model or settings.showmatch_scripts.model,
             supports_system_instructions=False,
-        ),
+        )
+
+    service = build_showmatch_script_service(
+        settings,
+        provider_builder=fake_builder,
     )
 
     payload = service.finish(
@@ -141,3 +158,51 @@ def test_deterministic_showmatch_service_builds_hype_payload() -> None:
     assert payload["category"] == "hype"
     assert payload["move"] == "Qxh7+"
     assert payload["tags"] == ["capture", "check"]
+
+
+def test_deterministic_showmatch_service_builds_illegal_move_callout() -> None:
+    service = DeterministicShowmatchScriptService(speaker_name="Arena Booth")
+
+    payload = service.illegal_move_callout(
+        game_id=1,
+        color="white",
+        player="Qwen Hero",
+        move_text="banana",
+        reason="no_candidate_found",
+        detail="No recognizable move was found.",
+        fen="fen",
+    )
+
+    assert payload["category"] == "illegal_move_callout"
+    assert payload["player"] == "Qwen Hero"
+    assert "banana" in payload["message"]
+
+
+def test_deterministic_showmatch_service_builds_interviews_and_quote_pins() -> None:
+    service = DeterministicShowmatchScriptService(speaker_name="Arena Booth")
+
+    interviews = service.postgame_interviews(
+        game_id=1,
+        result="1-0",
+        termination_reason="checkmate",
+        winner="Qwen Hero",
+        loser="Qwen Villain",
+        fen="fen",
+    )
+    quote_pins = service.quote_pins(
+        game_id=1,
+        quotes=(
+            QuoteCandidate(
+                speaker="Qwen Hero",
+                message="I saw that move from orbit.",
+                source_category="banter",
+                event_id=7,
+            ),
+        ),
+        fen="fen",
+    )
+
+    assert len(interviews) == 2
+    assert interviews[0]["category"] == "postgame_interview"
+    assert quote_pins[0]["category"] == "quote_pin"
+    assert quote_pins[0]["quoted_speaker"] == "Qwen Hero"

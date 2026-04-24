@@ -15,6 +15,7 @@ from lexichess.interactive.referee import (
 )
 from lexichess.interactive.showmatch import (
     DeterministicShowmatchScriptService,
+    QuoteCandidate,
     ShowmatchScriptService,
 )
 from lexichess.llm import MoveProvider, MoveRequest, ProviderError, build_provider
@@ -202,6 +203,15 @@ class InteractiveGameRuntime:
                     fen=fen_before,
                     legal_moves=tuple(board.legal_moves_san()),
                 ),
+            )
+            self._maybe_emit_showmatch_illegal_move_callout(
+                game_id=game_id,
+                color=normalized_color,
+                player=str(display_name),
+                move_text=move_text,
+                reason=interpretation.reason or "invalid_or_illegal_move",
+                detail=deterministic_explanation,
+                fen=fen_before,
             )
             raise ValueError(str(event["payload_json"]["detail"]))
 
@@ -513,6 +523,18 @@ class InteractiveGameRuntime:
                     legal_moves=legal_moves,
                 ),
             )
+            self._maybe_emit_showmatch_illegal_move_callout(
+                game_id=game_id,
+                color=color,
+                player=str(
+                    seat.get("display_name")
+                    or f"{provider.provider_name}:{provider.model}"
+                ),
+                move_text=response.output_text,
+                reason=interpretation.reason or "invalid_or_illegal_move",
+                detail=deterministic_explanation,
+                fen=fen_before,
+            )
             if attempt > self.max_correction_attempts:
                 return self._finish_invalid_game(
                     game_id=game_id,
@@ -632,7 +654,7 @@ class InteractiveGameRuntime:
                 color=color,
                 payload=finish_banter,
             )
-        self._maybe_emit_showmatch_finish(
+        self._emit_postgame_showmatch_sequence(
             game_id=game_id,
             result=result,
             termination_reason=termination_reason,
@@ -685,7 +707,7 @@ class InteractiveGameRuntime:
                 color=None,
                 payload=finish_banter,
             )
-        self._maybe_emit_showmatch_finish(
+        self._emit_postgame_showmatch_sequence(
             game_id=game_id,
             result=result,
             termination_reason=termination_reason,
@@ -913,6 +935,32 @@ class InteractiveGameRuntime:
             for event in events
         )
 
+    def _maybe_emit_showmatch_illegal_move_callout(
+        self,
+        *,
+        game_id: int,
+        color: str,
+        player: str,
+        move_text: str | None,
+        reason: str,
+        detail: str,
+        fen: str,
+    ) -> None:
+        game = self._require_game(game_id)
+        if not self._showmatch_enabled(game):
+            return
+        payload = self.showmatch_script_service.illegal_move_callout(
+            game_id=game_id,
+            color=color,
+            player=player,
+            move_text=move_text,
+            reason=reason,
+            detail=detail,
+            fen=fen,
+        )
+        if payload is not None:
+            self._emit_showmatch_script(game_id=game_id, color=color, payload=payload)
+
     def _maybe_emit_showmatch_hype(
         self,
         *,
@@ -949,8 +997,10 @@ class InteractiveGameRuntime:
         tags: list[str] = []
         if "x" in move:
             tags.append("capture")
-        if "+" in move:
+        if "+" in move or "#" in move:
             tags.append("check")
+        if "#" in move:
+            tags.append("checkmate")
         if "=" in move:
             tags.append("promotion")
         if move.startswith("O-O"):
@@ -959,7 +1009,7 @@ class InteractiveGameRuntime:
             tags.append("milestone")
         return tuple(tags)
 
-    def _maybe_emit_showmatch_finish(
+    def _emit_postgame_showmatch_sequence(
         self,
         *,
         game_id: int,
@@ -970,20 +1020,120 @@ class InteractiveGameRuntime:
         game = self._require_game(game_id)
         if not self._showmatch_enabled(game):
             return
-        if self._showmatch_script_exists(game_id, category="finish"):
-            return
-
         winner, loser = self._winner_and_loser(game_id, result)
-        payload = self.showmatch_script_service.finish(
-            game_id=game_id,
-            result=result,
-            termination_reason=termination_reason,
-            winner=winner,
-            loser=loser,
-            fen=fen,
+        white_player = self._seat_speaker_name(game_id, "white")
+        black_player = self._seat_speaker_name(game_id, "black")
+
+        if not self._showmatch_script_exists(game_id, category="finish"):
+            payload = self.showmatch_script_service.finish(
+                game_id=game_id,
+                result=result,
+                termination_reason=termination_reason,
+                winner=winner,
+                loser=loser,
+                fen=fen,
+            )
+            if payload is not None:
+                self._emit_showmatch_script(
+                    game_id=game_id, color=None, payload=payload
+                )
+
+        if not self._showmatch_script_exists(game_id, category="postgame_interview"):
+            for payload in self.showmatch_script_service.postgame_interviews(
+                game_id=game_id,
+                result=result,
+                termination_reason=termination_reason,
+                winner=winner,
+                loser=loser,
+                fen=fen,
+            ):
+                self._emit_showmatch_script(
+                    game_id=game_id,
+                    color=None,
+                    payload=payload,
+                )
+
+        if not self._showmatch_script_exists(game_id, category="rivalry_recap"):
+            rivalry_payload = self.showmatch_script_service.rivalry_recap(
+                game_id=game_id,
+                white_player=white_player,
+                black_player=black_player,
+                result=result,
+                banter_count=self._count_game_events(
+                    game_id, event_type="player_banter"
+                ),
+                illegal_move_count=self._count_illegal_move_events(game_id),
+                fen=fen,
+            )
+            if rivalry_payload is not None:
+                self._emit_showmatch_script(
+                    game_id=game_id,
+                    color=None,
+                    payload=rivalry_payload,
+                )
+
+        if not self._showmatch_script_exists(game_id, category="quote_pin"):
+            quotes = self._quote_candidates(game_id)
+            if quotes:
+                for payload in self.showmatch_script_service.quote_pins(
+                    game_id=game_id,
+                    quotes=quotes,
+                    fen=fen,
+                ):
+                    self._emit_showmatch_script(
+                        game_id=game_id,
+                        color=None,
+                        payload=payload,
+                    )
+
+    def _count_game_events(self, game_id: int, *, event_type: str) -> int:
+        return len(
+            self.repository.list_game_events(
+                game_id,
+                event_types=(event_type,),
+                limit=500,
+            )
         )
-        if payload is not None:
-            self._emit_showmatch_script(game_id=game_id, color=None, payload=payload)
+
+    def _count_illegal_move_events(self, game_id: int) -> int:
+        events = self.repository.list_game_events(
+            game_id,
+            event_types=("showmatch_script",),
+            limit=500,
+        )
+        return sum(
+            1
+            for event in events
+            if isinstance(event.get("payload_json"), dict)
+            and event["payload_json"].get("category") == "illegal_move_callout"
+        )
+
+    def _quote_candidates(self, game_id: int) -> tuple[QuoteCandidate, ...]:
+        player_banter_events = self.repository.list_game_events(
+            game_id,
+            event_types=("player_banter",),
+            limit=100,
+        )
+        candidates: list[QuoteCandidate] = []
+        for event in reversed(player_banter_events):
+            payload = event.get("payload_json")
+            if not isinstance(payload, dict):
+                continue
+            message = str(payload.get("message") or "").strip()
+            speaker = str(payload.get("speaker") or "").strip()
+            if not message or not speaker:
+                continue
+            candidates.append(
+                QuoteCandidate(
+                    speaker=speaker,
+                    message=message,
+                    source_category=str(payload.get("category") or "banter"),
+                    event_id=int(event["id"]),
+                )
+            )
+            if len(candidates) == 2:
+                break
+        return tuple(candidates)
 
 
 class LiveGameLoopManager:

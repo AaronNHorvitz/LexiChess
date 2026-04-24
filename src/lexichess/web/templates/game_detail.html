@@ -168,4 +168,20 @@
     {% endfor %}
   </div>
 </section>
+
+<section class="panel">
+  <div class="panel-heading">
+    <h2>Quote Pins</h2>
+  </div>
+  <div class="list-stack">
+    {% for event in bundle.quote_pin_events %}
+    <div class="list-card static-card">
+      <strong>{{ event["payload_json"]["speaker"] }} · #{{ event["payload_json"]["rank"] }}</strong>
+      <span>{{ event["payload_json"]["quoted_message"] }}</span>
+    </div>
+    {% else %}
+    <p class="empty-copy">No pinned quotes recorded yet.</p>
+    {% endfor %}
+  </div>
+</section>
 {% endblock %}

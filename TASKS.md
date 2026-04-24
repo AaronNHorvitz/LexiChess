@@ -722,7 +722,7 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [ ] 17.23 Add replay audio scrubber
 - [ ] 17.24 Add advanced animated avatar gate for post-launch expansion
 
-## [ ] Sprint 18: Referee, Showmatches & Broadcast Engine (10/28 done)
+## [ ] Sprint 18: Referee, Showmatches & Broadcast Engine (14/28 done)
 
 ### [ ] 18. Referee, Showmatches & Broadcast Engine
 
@@ -735,12 +735,12 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [x] 18.7 Add post-move roast pipeline
 - [x] 18.8 Add pregame intro script workflow
 - [x] 18.9 Add midgame hype script workflow
-- [ ] 18.10 Add illegal-move callout script workflow
+- [x] 18.10 Add illegal-move callout script workflow
 - [x] 18.11 Add checkmate finisher script workflow
 - [x] 18.12 Add draw-result wrap-up workflow
-- [ ] 18.13 Add post-game interview workflow
-- [ ] 18.14 Add rivalry recap workflow
-- [ ] 18.15 Add quote pinning workflow
+- [x] 18.13 Add post-game interview workflow
+- [x] 18.14 Add rivalry recap workflow
+- [x] 18.15 Add quote pinning workflow
 - [ ] 18.16 Add highlight moment detection
 - [ ] 18.17 Add clip manifest generation
 - [ ] 18.18 Add broadcast timeline schema

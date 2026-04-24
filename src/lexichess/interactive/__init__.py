@@ -18,6 +18,7 @@ from lexichess.interactive.referee import (
 from lexichess.interactive.showmatch import (
     DeterministicShowmatchScriptService,
     ProviderBackedShowmatchScriptService,
+    QuoteCandidate,
     ShowmatchScriptService,
     build_showmatch_script_service,
 )
@@ -40,4 +41,5 @@ __all__ = [
     "ShowmatchScriptService",
     "build_showmatch_script_service",
     "DeterministicShowmatchScriptService",
+    "QuoteCandidate",
 ]

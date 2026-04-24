@@ -406,6 +406,10 @@ def test_web_app_exposes_api_and_spectator_pages(
     ]
     assert "pregame" in showmatch_categories
 
+    quotes_feed = client.get(f"/api/games/{live_game_id}/quotes")
+    assert quotes_feed.status_code == 200
+    assert isinstance(quotes_feed.json(), list)
+
     transcript_feed = client.get(f"/api/games/{live_game_id}/transcript")
     assert transcript_feed.status_code == 200
     transcript_types = [event["event_type"] for event in transcript_feed.json()]
@@ -453,3 +457,4 @@ def test_web_app_exposes_api_and_spectator_pages(
     assert "Move List" in game_page.text
     assert "Seat State" in game_page.text
     assert "Showmatch Feed" in game_page.text
+    assert "Quote Pins" in game_page.text

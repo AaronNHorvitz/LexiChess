@@ -312,6 +312,28 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
         except (LookupError, ValueError) as exc:
             raise _as_http_error(exc) from exc
 
+    @app.get("/api/games/{game_id}/quotes")
+    def api_game_quote_pin_events(
+        game_id: int,
+        after_id: int | None = Query(default=None, ge=0),
+        limit: int = Query(default=20, ge=1, le=200),
+    ) -> list[dict[str, Any]]:
+        try:
+            events = interactive_service.list_events(
+                game_id,
+                after_id=after_id,
+                event_types=("showmatch_script",),
+                limit=200,
+            )
+        except (LookupError, ValueError) as exc:
+            raise _as_http_error(exc) from exc
+        return [
+            event
+            for event in events
+            if isinstance(event.get("payload_json"), dict)
+            and event["payload_json"].get("category") == "quote_pin"
+        ][:limit]
+
     @app.get("/api/games/{game_id}/live")
     def api_game_live_status(game_id: int) -> dict[str, Any]:
         if repository.get_game(game_id) is None:
@@ -574,6 +596,12 @@ def _game_bundle(
         event_types=("showmatch_script",),
         limit=20,
     )
+    bundle["quote_pin_events"] = [
+        event
+        for event in bundle["showmatch_events"]
+        if isinstance(event.get("payload_json"), dict)
+        and event["payload_json"].get("category") == "quote_pin"
+    ]
     bundle["live"] = live_manager.status(game_id)
     return bundle
 

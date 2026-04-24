@@ -169,6 +169,127 @@ class ScriptedShowmatchService:
             "model": "showmatch-bot",
         }
 
+    def illegal_move_callout(
+        self,
+        *,
+        game_id: int,
+        color: str,
+        player: str,
+        move_text: str | None,
+        reason: str,
+        detail: str,
+        fen: str,
+    ) -> dict[str, object]:
+        del game_id, fen
+        return {
+            "role": "showmatch",
+            "speaker": "Arena Booth",
+            "category": "illegal_move_callout",
+            "target": "crowd",
+            "message": f"Arena Booth flags {player} for {reason} on {move_text or 'unknown'}.",
+            "player": player,
+            "reason": reason,
+            "detail": detail,
+            "source": "model",
+            "provider": "ollama",
+            "model": "showmatch-bot",
+            "color": color,
+        }
+
+    def postgame_interviews(
+        self,
+        *,
+        game_id: int,
+        result: str | None,
+        termination_reason: str | None,
+        winner: str | None,
+        loser: str | None,
+        fen: str,
+    ) -> list[dict[str, object]]:
+        del game_id, result, termination_reason, fen
+        payloads: list[dict[str, object]] = []
+        if winner is not None:
+            payloads.append(
+                {
+                    "role": "showmatch",
+                    "speaker": winner,
+                    "category": "postgame_interview",
+                    "target": "crowd",
+                    "message": f"{winner} says the postgame mic belongs to them.",
+                    "source": "model",
+                    "provider": "ollama",
+                    "model": "showmatch-bot",
+                    "stance": "winner",
+                }
+            )
+        if loser is not None:
+            payloads.append(
+                {
+                    "role": "showmatch",
+                    "speaker": loser,
+                    "category": "postgame_interview",
+                    "target": "crowd",
+                    "message": f"{loser} says this tape is being reviewed by the legal team.",
+                    "source": "model",
+                    "provider": "ollama",
+                    "model": "showmatch-bot",
+                    "stance": "loser",
+                }
+            )
+        return payloads
+
+    def rivalry_recap(
+        self,
+        *,
+        game_id: int,
+        white_player: str,
+        black_player: str,
+        result: str | None,
+        banter_count: int,
+        illegal_move_count: int,
+        fen: str,
+    ) -> dict[str, object]:
+        del game_id, fen
+        return {
+            "role": "showmatch",
+            "speaker": "Arena Booth",
+            "category": "rivalry_recap",
+            "target": "crowd",
+            "message": (
+                f"Arena Booth recaps {white_player} vs {black_player}: "
+                f"{banter_count} banter lines, {illegal_move_count} illegal calls, result {result}."
+            ),
+            "source": "model",
+            "provider": "ollama",
+            "model": "showmatch-bot",
+        }
+
+    def quote_pins(
+        self,
+        *,
+        game_id: int,
+        quotes: tuple[object, ...],
+        fen: str,
+    ) -> list[dict[str, object]]:
+        del game_id, fen
+        payloads: list[dict[str, object]] = []
+        for rank, quote in enumerate(quotes, start=1):
+            payloads.append(
+                {
+                    "role": "showmatch",
+                    "speaker": "Arena Booth",
+                    "category": "quote_pin",
+                    "target": "crowd",
+                    "message": f"Quote #{rank} is pinned.",
+                    "quoted_message": getattr(quote, "message", ""),
+                    "rank": rank,
+                    "source": "model",
+                    "provider": "ollama",
+                    "model": "showmatch-bot",
+                }
+            )
+        return payloads
+
 
 def test_runtime_advances_model_turn_and_waits_for_human(tmp_path: Path) -> None:
     repository = SQLiteRepository(tmp_path / "live_runtime.db")
@@ -363,6 +484,7 @@ def test_runtime_emits_referee_message_for_invalid_move(tmp_path: Path) -> None:
         repository,
         settings,
         provider_builder=fake_builder,
+        showmatch_script_service=ScriptedShowmatchService(),
     )
 
     result = runtime.advance_once(game_id)
@@ -378,6 +500,14 @@ def test_runtime_emits_referee_message_for_invalid_move(tmp_path: Path) -> None:
         if event["event_type"] == "referee_message"
     ]
     assert any("Reset, breathe" in payload["message"] for payload in referee_payloads)
+    showmatch_payloads = [
+        event["payload_json"]
+        for event in events
+        if event["event_type"] == "showmatch_script"
+    ]
+    assert any(
+        payload["category"] == "illegal_move_callout" for payload in showmatch_payloads
+    )
 
 
 def test_runtime_uses_injected_banter_service_for_model_moves(tmp_path: Path) -> None:
@@ -500,6 +630,91 @@ def test_runtime_emits_showmatch_script_events(tmp_path: Path) -> None:
 
     assert categories == ["pregame", "hype"]
     assert "Qwen Villain" in events[1]["payload_json"]["message"]
+
+
+def test_runtime_emits_postgame_showmatch_sequence_for_finished_game(
+    tmp_path: Path,
+) -> None:
+    repository = SQLiteRepository(tmp_path / "live_showmatch_finish.db")
+    repository.initialize()
+    settings = AppSettings.from_env(
+        env={"LEXICHESS_DB_PATH": str(repository.database_path)},
+        dotenv_path=None,
+    )
+    outputs = {("ollama", "qwen3:8b"): ["MOVE: e4"]}
+
+    def fake_builder(
+        provider_name: str, settings: AppSettings, *, model: str | None = None
+    ) -> SharedScriptProvider:
+        del settings
+        resolved_model = model or "unknown"
+        return SharedScriptProvider(
+            provider_name, resolved_model, outputs[(provider_name, resolved_model)]
+        )
+
+    game_id = repository.create_game(
+        white_provider="ollama",
+        white_model="qwen3:8b",
+        black_provider="ollama",
+        black_model="qwen3:14b",
+        initial_fen=chess.STARTING_FEN,
+        mode="showmatch",
+        status="created",
+    )
+    repository.upsert_game_seat(
+        game_id=game_id,
+        color="white",
+        controller="model",
+        provider="ollama",
+        model="qwen3:8b",
+        display_name="Qwen Hero",
+        claimed_by=None,
+    )
+    repository.upsert_game_seat(
+        game_id=game_id,
+        color="black",
+        controller="model",
+        provider="ollama",
+        model="qwen3:14b",
+        display_name="Qwen Villain",
+        claimed_by=None,
+    )
+
+    runtime = InteractiveGameRuntime(
+        repository,
+        settings,
+        provider_builder=fake_builder,
+        banter_service=ScriptedBanterService(),
+        showmatch_script_service=ScriptedShowmatchService(),
+    )
+
+    runtime.emit_pregame_intro(game_id)
+    repository.log_game_event(
+        game_id=game_id,
+        event_type="player_banter",
+        color="white",
+        payload={
+            "role": "player",
+            "speaker": "Qwen Hero",
+            "category": "banter",
+            "target": "opponent",
+            "message": "I saw this line from orbit.",
+        },
+    )
+    runtime._emit_postgame_showmatch_sequence(
+        game_id=game_id,
+        result="1-0",
+        termination_reason="checkmate",
+        fen=chess.STARTING_FEN,
+    )
+    events = repository.list_game_events(game_id, event_types=("showmatch_script",))
+    categories = [event["payload_json"]["category"] for event in events]
+
+    assert "pregame" in categories
+    assert "finish" in categories
+    assert "postgame_interview" in categories
+    assert "rivalry_recap" in categories
+    assert "quote_pin" in categories
 
 
 def test_live_loop_manager_runs_until_human_turn_and_can_stop(tmp_path: Path) -> None:
