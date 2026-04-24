@@ -13,6 +13,10 @@ from lexichess.interactive.referee import (
     DeterministicRefereeService,
     RefereeService,
 )
+from lexichess.interactive.showmatch import (
+    DeterministicShowmatchScriptService,
+    ShowmatchScriptService,
+)
 from lexichess.llm import MoveProvider, MoveRequest, ProviderError, build_provider
 from lexichess.storage import SQLiteRepository
 from lexichess.tournament.models import InvalidMoveNotification
@@ -54,6 +58,7 @@ class InteractiveGameRuntime:
         provider_builder: ProviderBuilder | None = None,
         referee_service: RefereeService | None = None,
         banter_service: BanterService | None = None,
+        showmatch_script_service: ShowmatchScriptService | None = None,
         max_correction_attempts: int = 1,
     ) -> None:
         self.repository = repository
@@ -63,7 +68,31 @@ class InteractiveGameRuntime:
             speaker_name=settings.referee.speaker_name
         )
         self.banter_service = banter_service or DeterministicBanterService()
+        self.showmatch_script_service = (
+            showmatch_script_service
+            or DeterministicShowmatchScriptService(
+                speaker_name=settings.showmatch_scripts.speaker_name
+            )
+        )
         self.max_correction_attempts = max_correction_attempts
+
+    def emit_pregame_intro(self, game_id: int) -> dict[str, Any] | None:
+        game = self._require_game(game_id)
+        if not self._showmatch_enabled(game):
+            return None
+        if self._showmatch_script_exists(game_id, category="pregame"):
+            return None
+
+        white_player = self._seat_speaker_name(game_id, "white")
+        black_player = self._seat_speaker_name(game_id, "black")
+        payload = self.showmatch_script_service.pregame_intro(
+            game_id=game_id,
+            white_player=white_player,
+            black_player=black_player,
+        )
+        if payload is None:
+            return None
+        return self._emit_showmatch_script(game_id=game_id, color=None, payload=payload)
 
     def advance_once(self, game_id: int) -> LiveAdvanceResult:
         game = self._require_game(game_id)
@@ -231,6 +260,13 @@ class InteractiveGameRuntime:
                     color=normalized_color,
                     payload=banter_payload,
                 )
+        self._maybe_emit_showmatch_hype(
+            game_id=game_id,
+            color=normalized_color,
+            speaker=str(display_name),
+            move=normalized_move,
+            board=board,
+        )
         return event
 
     def _run_model_turn(
@@ -371,6 +407,16 @@ class InteractiveGameRuntime:
                             color=color,
                             payload=banter_payload,
                         )
+                self._maybe_emit_showmatch_hype(
+                    game_id=game_id,
+                    color=color,
+                    speaker=str(
+                        seat.get("display_name")
+                        or f"{provider.provider_name}:{provider.model}"
+                    ),
+                    move=normalized_move,
+                    board=board,
+                )
                 if board.is_game_over():
                     return self._finish_from_board(game_id, board)
                 return LiveAdvanceResult(
@@ -586,6 +632,12 @@ class InteractiveGameRuntime:
                 color=color,
                 payload=finish_banter,
             )
+        self._maybe_emit_showmatch_finish(
+            game_id=game_id,
+            result=result,
+            termination_reason=termination_reason,
+            fen=board.fen,
+        )
         return LiveAdvanceResult(
             game_id=game_id,
             status="completed",
@@ -633,6 +685,12 @@ class InteractiveGameRuntime:
                 color=None,
                 payload=finish_banter,
             )
+        self._maybe_emit_showmatch_finish(
+            game_id=game_id,
+            result=result,
+            termination_reason=termination_reason,
+            fen=board.fen,
+        )
         return LiveAdvanceResult(
             game_id=game_id,
             status="completed",
@@ -764,6 +822,22 @@ class InteractiveGameRuntime:
             payload=payload,
         )
 
+    def _emit_showmatch_script(
+        self,
+        *,
+        game_id: int,
+        color: str | None,
+        payload: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        if not self._showmatch_enabled(self._require_game(game_id)):
+            return None
+        return self.repository.log_game_event(
+            game_id=game_id,
+            event_type="showmatch_script",
+            color=color,
+            payload=payload,
+        )
+
     def _referee_enabled(self, game: dict[str, Any]) -> bool:
         return str(game.get("mode") or "benchmark") != "benchmark"
 
@@ -774,6 +848,12 @@ class InteractiveGameRuntime:
         if mode == "showmatch":
             return self.settings.showmatch_mode.allow_banter
         return True
+
+    def _showmatch_enabled(self, game: dict[str, Any]) -> bool:
+        return (
+            str(game.get("mode") or "benchmark") == "showmatch"
+            and self.settings.showmatch_scripts.enabled
+        )
 
     def _finish_banter_payload(
         self,
@@ -821,6 +901,90 @@ class InteractiveGameRuntime:
     def _opponent_color(self, color: str) -> str:
         return "black" if color == "white" else "white"
 
+    def _showmatch_script_exists(self, game_id: int, *, category: str) -> bool:
+        events = self.repository.list_game_events(
+            game_id,
+            event_types=("showmatch_script",),
+            limit=100,
+        )
+        return any(
+            isinstance(event.get("payload_json"), dict)
+            and event["payload_json"].get("category") == category
+            for event in events
+        )
+
+    def _maybe_emit_showmatch_hype(
+        self,
+        *,
+        game_id: int,
+        color: str,
+        speaker: str,
+        move: str,
+        board: ChessBoard,
+    ) -> None:
+        game = self._require_game(game_id)
+        if not self._showmatch_enabled(game):
+            return
+        if board.is_game_over():
+            return
+
+        tags = self._showmatch_tags(move=move, ply=board.ply)
+        if not tags:
+            return
+
+        payload = self.showmatch_script_service.midgame_hype(
+            game_id=game_id,
+            color=color,
+            speaker=speaker,
+            opponent=self._seat_speaker_name(game_id, self._opponent_color(color)),
+            move=move,
+            ply=board.ply,
+            tags=tags,
+            fen=board.fen,
+        )
+        if payload is not None:
+            self._emit_showmatch_script(game_id=game_id, color=color, payload=payload)
+
+    def _showmatch_tags(self, *, move: str, ply: int) -> tuple[str, ...]:
+        tags: list[str] = []
+        if "x" in move:
+            tags.append("capture")
+        if "+" in move:
+            tags.append("check")
+        if "=" in move:
+            tags.append("promotion")
+        if move.startswith("O-O"):
+            tags.append("castle")
+        if ply % 10 == 0:
+            tags.append("milestone")
+        return tuple(tags)
+
+    def _maybe_emit_showmatch_finish(
+        self,
+        *,
+        game_id: int,
+        result: str | None,
+        termination_reason: str | None,
+        fen: str,
+    ) -> None:
+        game = self._require_game(game_id)
+        if not self._showmatch_enabled(game):
+            return
+        if self._showmatch_script_exists(game_id, category="finish"):
+            return
+
+        winner, loser = self._winner_and_loser(game_id, result)
+        payload = self.showmatch_script_service.finish(
+            game_id=game_id,
+            result=result,
+            termination_reason=termination_reason,
+            winner=winner,
+            loser=loser,
+            fen=fen,
+        )
+        if payload is not None:
+            self._emit_showmatch_script(game_id=game_id, color=None, payload=payload)
+
 
 class LiveGameLoopManager:
     def __init__(
@@ -860,7 +1024,6 @@ class LiveGameLoopManager:
                 started_at=time.time(),
             )
             self._handles[game_id] = handle
-            thread.start()
 
         self.repository.update_game_status(game_id, status="running")
         self.repository.log_game_event(
@@ -868,6 +1031,8 @@ class LiveGameLoopManager:
             event_type="live_loop_started",
             payload={"game_id": game_id},
         )
+        self.runtime.emit_pregame_intro(game_id)
+        thread.start()
         return self.status(game_id)
 
     def stop(self, game_id: int) -> dict[str, Any]:

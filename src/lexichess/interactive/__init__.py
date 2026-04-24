@@ -15,6 +15,12 @@ from lexichess.interactive.referee import (
     RefereeService,
     build_referee_service,
 )
+from lexichess.interactive.showmatch import (
+    DeterministicShowmatchScriptService,
+    ProviderBackedShowmatchScriptService,
+    ShowmatchScriptService,
+    build_showmatch_script_service,
+)
 from lexichess.interactive.service import InteractiveGameService
 
 __all__ = [
@@ -29,5 +35,9 @@ __all__ = [
     "LiveGameLoopManager",
     "ProviderBackedBanterService",
     "ProviderBackedRefereeService",
+    "ProviderBackedShowmatchScriptService",
     "RefereeService",
+    "ShowmatchScriptService",
+    "build_showmatch_script_service",
+    "DeterministicShowmatchScriptService",
 ]

@@ -104,6 +104,29 @@ def test_settings_parse_banter_configuration() -> None:
     assert settings.banter.allow_fallback is False
 
 
+def test_settings_parse_showmatch_script_configuration() -> None:
+    settings = AppSettings.from_env(
+        env={
+            "LEXICHESS_SHOWMATCH_SCRIPT_ENABLED": "true",
+            "LEXICHESS_SHOWMATCH_SCRIPT_PROVIDER": "ollama",
+            "LEXICHESS_SHOWMATCH_SCRIPT_MODEL": "gemma4:latest",
+            "LEXICHESS_SHOWMATCH_SCRIPT_SPEAKER_NAME": "Arena Booth",
+            "LEXICHESS_SHOWMATCH_SCRIPT_TEMPERATURE": "0.7",
+            "LEXICHESS_SHOWMATCH_SCRIPT_MAX_OUTPUT_TOKENS": "110",
+            "LEXICHESS_SHOWMATCH_SCRIPT_ALLOW_FALLBACK": "false",
+        },
+        dotenv_path=None,
+    )
+
+    assert settings.showmatch_scripts.enabled is True
+    assert settings.showmatch_scripts.provider is ProviderName.OLLAMA
+    assert settings.showmatch_scripts.model == "gemma4:latest"
+    assert settings.showmatch_scripts.speaker_name == "Arena Booth"
+    assert settings.showmatch_scripts.temperature == 0.7
+    assert settings.showmatch_scripts.max_output_tokens == 110
+    assert settings.showmatch_scripts.allow_fallback is False
+
+
 def test_settings_export_redacts_secrets_by_default() -> None:
     settings = AppSettings.from_env(
         env={
@@ -116,6 +139,7 @@ def test_settings_export_redacts_secrets_by_default() -> None:
 
     assert payload["ollama"]["api_key"] == "***REDACTED***"
     assert payload["banter"]["enabled"] is True
+    assert payload["showmatch_scripts"]["enabled"] is True
 
 
 def test_settings_include_runtime_retry_and_stockfish_configuration() -> None:

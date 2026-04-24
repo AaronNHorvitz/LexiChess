@@ -23,6 +23,7 @@ from lexichess.interactive import (
     LiveGameLoopManager,
     build_banter_service,
     build_referee_service,
+    build_showmatch_script_service,
 )
 from lexichess.storage import SQLiteRepository
 from lexichess.tournament.export import (
@@ -42,11 +43,13 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     interactive_service = InteractiveGameService(repository, resolved_settings)
     banter_service = build_banter_service(resolved_settings)
     referee_service = build_referee_service(resolved_settings)
+    showmatch_script_service = build_showmatch_script_service(resolved_settings)
     interactive_runtime = InteractiveGameRuntime(
         repository,
         resolved_settings,
         banter_service=banter_service,
         referee_service=referee_service,
+        showmatch_script_service=showmatch_script_service,
     )
     live_manager = LiveGameLoopManager(interactive_runtime, repository)
     templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
@@ -283,10 +286,27 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
                 event_types=(
                     "referee_message",
                     "player_banter",
+                    "showmatch_script",
                     "user_chat",
                     "human_move_submitted",
                     "human_move_rejected",
                 ),
+                limit=limit,
+            )
+        except (LookupError, ValueError) as exc:
+            raise _as_http_error(exc) from exc
+
+    @app.get("/api/games/{game_id}/showmatch")
+    def api_game_showmatch_events(
+        game_id: int,
+        after_id: int | None = Query(default=None, ge=0),
+        limit: int = Query(default=100, ge=1, le=500),
+    ) -> list[dict[str, Any]]:
+        try:
+            return interactive_service.list_events(
+                game_id,
+                after_id=after_id,
+                event_types=("showmatch_script",),
                 limit=limit,
             )
         except (LookupError, ValueError) as exc:
@@ -388,6 +408,35 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
                 after_id=after_id,
                 limit=limit,
                 event_types=("player_banter",),
+                once=once,
+                poll_seconds=poll_seconds,
+            ),
+            media_type="text/event-stream",
+        )
+
+    @app.get("/api/games/{game_id}/showmatch/stream")
+    def api_game_showmatch_stream(
+        game_id: int,
+        after_id: int | None = Query(default=None, ge=0),
+        limit: int = Query(default=100, ge=1, le=500),
+        once: bool = Query(default=False),
+        poll_seconds: float = Query(default=5.0, ge=0.0, le=30.0),
+    ) -> StreamingResponse:
+        try:
+            interactive_service.list_events(
+                game_id,
+                event_types=("showmatch_script",),
+                limit=1,
+            )
+        except (LookupError, ValueError) as exc:
+            raise _as_http_error(exc) from exc
+        return StreamingResponse(
+            _event_stream(
+                interactive_service,
+                game_id=game_id,
+                after_id=after_id,
+                limit=limit,
+                event_types=("showmatch_script",),
                 once=once,
                 poll_seconds=poll_seconds,
             ),
@@ -518,6 +567,11 @@ def _game_bundle(
     bundle["banter_events"] = interactive_service.list_events(
         game_id,
         event_types=("player_banter",),
+        limit=20,
+    )
+    bundle["showmatch_events"] = interactive_service.list_events(
+        game_id,
+        event_types=("showmatch_script",),
         limit=20,
     )
     bundle["live"] = live_manager.status(game_id)

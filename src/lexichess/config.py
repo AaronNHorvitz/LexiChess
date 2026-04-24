@@ -95,6 +95,17 @@ class BanterSettings:
 
 
 @dataclass(frozen=True, slots=True)
+class ShowmatchScriptSettings:
+    enabled: bool = True
+    provider: ProviderName = ProviderName.OLLAMA
+    model: str = "gemma4:latest"
+    speaker_name: str = "Arena Booth"
+    temperature: float = 0.6
+    max_output_tokens: int = 96
+    allow_fallback: bool = True
+
+
+@dataclass(frozen=True, slots=True)
 class LoggingSettings:
     level: str = "INFO"
     json: bool = False
@@ -138,6 +149,7 @@ class AppSettings:
     character_mode: CharacterModeSettings
     referee: RefereeSettings
     banter: BanterSettings
+    showmatch_scripts: ShowmatchScriptSettings
     ollama: OllamaSettings
     stockfish: StockfishSettings
 
@@ -279,6 +291,38 @@ class AppSettings:
                     True,
                 ),
             ),
+            showmatch_scripts=ShowmatchScriptSettings(
+                enabled=_parse_bool(
+                    raw.get("LEXICHESS_SHOWMATCH_SCRIPT_ENABLED"),
+                    True,
+                ),
+                provider=ProviderName(
+                    raw.get(
+                        "LEXICHESS_SHOWMATCH_SCRIPT_PROVIDER",
+                        ProviderName.OLLAMA,
+                    )
+                    .strip()
+                    .lower()
+                ),
+                model=_optional_str(raw.get("LEXICHESS_SHOWMATCH_SCRIPT_MODEL"))
+                or "gemma4:latest",
+                speaker_name=raw.get(
+                    "LEXICHESS_SHOWMATCH_SCRIPT_SPEAKER_NAME",
+                    "Arena Booth",
+                ).strip(),
+                temperature=_parse_float(
+                    raw.get("LEXICHESS_SHOWMATCH_SCRIPT_TEMPERATURE"),
+                    0.6,
+                ),
+                max_output_tokens=_parse_int(
+                    raw.get("LEXICHESS_SHOWMATCH_SCRIPT_MAX_OUTPUT_TOKENS"),
+                    96,
+                ),
+                allow_fallback=_parse_bool(
+                    raw.get("LEXICHESS_SHOWMATCH_SCRIPT_ALLOW_FALLBACK"),
+                    True,
+                ),
+            ),
             ollama=OllamaSettings(
                 host=raw.get("OLLAMA_HOST", "http://localhost:11434").rstrip("/"),
                 model=model_override
@@ -364,6 +408,15 @@ class AppSettings:
                 "temperature": self.banter.temperature,
                 "max_output_tokens": self.banter.max_output_tokens,
                 "allow_fallback": self.banter.allow_fallback,
+            },
+            "showmatch_scripts": {
+                "enabled": self.showmatch_scripts.enabled,
+                "provider": self.showmatch_scripts.provider.value,
+                "model": self.showmatch_scripts.model,
+                "speaker_name": self.showmatch_scripts.speaker_name,
+                "temperature": self.showmatch_scripts.temperature,
+                "max_output_tokens": self.showmatch_scripts.max_output_tokens,
+                "allow_fallback": self.showmatch_scripts.allow_fallback,
             },
             "ollama": {
                 "host": self.ollama.host,

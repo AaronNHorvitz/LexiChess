@@ -24,8 +24,7 @@ class BanterService(Protocol):
         opponent: str | None,
         move: str,
         fen: str,
-    ) -> dict[str, Any] | None:
-        ...
+    ) -> dict[str, Any] | None: ...
 
     def finish(
         self,
@@ -36,8 +35,7 @@ class BanterService(Protocol):
         result: str | None,
         termination_reason: str | None,
         fen: str,
-    ) -> dict[str, Any] | None:
-        ...
+    ) -> dict[str, Any] | None: ...
 
 
 class DeterministicBanterService:

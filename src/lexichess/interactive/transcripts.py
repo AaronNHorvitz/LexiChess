@@ -114,3 +114,95 @@ def build_finish_banter(
         "message": f"{winner} starts celebrating like the whole arena heard that last move coming.",
         "result": result,
     }
+
+
+def build_showmatch_intro(
+    *,
+    speaker_name: str,
+    white_player: str,
+    black_player: str,
+) -> dict[str, Any]:
+    return {
+        "role": "showmatch",
+        "speaker": speaker_name,
+        "category": "pregame",
+        "target": "crowd",
+        "message": (
+            f"Welcome to the nonsense: {white_player} vs {black_player}. "
+            "Keep the moves legal and the trash talk television-ready."
+        ),
+        "white_player": white_player,
+        "black_player": black_player,
+    }
+
+
+def build_showmatch_hype(
+    *,
+    speaker_name: str,
+    color: str,
+    speaker: str,
+    opponent: str | None,
+    move: str,
+    ply: int,
+    tags: tuple[str, ...],
+) -> dict[str, Any]:
+    tag_text = ", ".join(tags) if tags else "pressure"
+    choices = (
+        f"{speaker_name}: {speaker} just threw {move} into the middle of this fight and {opponent or 'the other side'} has to answer it now.",
+        f"{speaker_name}: Ply {ply} just got loud. {speaker} played {move} and the board smells like {tag_text}.",
+        f"{speaker_name}: {speaker} lands {move} and the arena immediately starts acting like the next reply better be perfect.",
+    )
+    index = sum(ord(char) for char in f"{speaker}:{move}:{ply}:{tag_text}") % len(
+        choices
+    )
+    return {
+        "role": "showmatch",
+        "speaker": speaker_name,
+        "category": "hype",
+        "target": "crowd",
+        "message": choices[index],
+        "color": color,
+        "player": speaker,
+        "opponent": opponent,
+        "move": move,
+        "ply": ply,
+        "tags": list(tags),
+    }
+
+
+def build_showmatch_finish(
+    *,
+    speaker_name: str,
+    result: str | None,
+    termination_reason: str | None,
+    winner: str | None,
+    loser: str | None,
+) -> dict[str, Any]:
+    reason = termination_reason or "game_over"
+    if result == "1/2-1/2":
+        message = (
+            f"{speaker_name}: All that heat and nobody found daylight. "
+            "This one goes in the books as a draw."
+        )
+    elif (
+        termination_reason and "checkmate" in termination_reason and winner is not None
+    ):
+        message = (
+            f"{speaker_name}: {winner} just slammed the cage door shut on {loser or 'the other side'}. "
+            "That is a full-arena checkmate finish."
+        )
+    elif winner is not None:
+        message = f"{speaker_name}: {winner} takes the show and leaves {loser or 'the other side'} to explain the smoke."
+    else:
+        message = f"{speaker_name}: The show is over. Official ending: {reason}."
+    return {
+        "role": "showmatch",
+        "speaker": speaker_name,
+        "category": "finish",
+        "target": "crowd",
+        "message": message,
+        "result": result,
+        "termination_reason": reason,
+        "winner": winner,
+        "loser": loser,
+    }

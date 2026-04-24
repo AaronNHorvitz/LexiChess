@@ -98,6 +98,78 @@ class ScriptedBanterService:
         }
 
 
+class ScriptedShowmatchService:
+    def pregame_intro(
+        self,
+        *,
+        game_id: int,
+        white_player: str,
+        black_player: str,
+    ) -> dict[str, str]:
+        del game_id
+        return {
+            "role": "showmatch",
+            "speaker": "Arena Booth",
+            "category": "pregame",
+            "target": "crowd",
+            "message": f"Arena Booth welcomes {white_player} and {black_player}.",
+            "source": "model",
+            "provider": "ollama",
+            "model": "showmatch-bot",
+        }
+
+    def midgame_hype(
+        self,
+        *,
+        game_id: int,
+        color: str,
+        speaker: str,
+        opponent: str | None,
+        move: str,
+        ply: int,
+        tags: tuple[str, ...],
+        fen: str,
+    ) -> dict[str, object]:
+        del game_id, color, fen
+        return {
+            "role": "showmatch",
+            "speaker": "Arena Booth",
+            "category": "hype",
+            "target": "crowd",
+            "message": f"Arena Booth says {speaker} just rattled {opponent} with {move}.",
+            "move": move,
+            "ply": ply,
+            "tags": list(tags),
+            "source": "model",
+            "provider": "ollama",
+            "model": "showmatch-bot",
+        }
+
+    def finish(
+        self,
+        *,
+        game_id: int,
+        result: str | None,
+        termination_reason: str | None,
+        winner: str | None,
+        loser: str | None,
+        fen: str,
+    ) -> dict[str, object]:
+        del game_id, loser, fen
+        return {
+            "role": "showmatch",
+            "speaker": "Arena Booth",
+            "category": "finish",
+            "target": "crowd",
+            "message": f"Arena Booth closes the book on {winner or 'nobody'} with {termination_reason or result}.",
+            "result": result,
+            "termination_reason": termination_reason,
+            "source": "model",
+            "provider": "ollama",
+            "model": "showmatch-bot",
+        }
+
+
 def test_runtime_advances_model_turn_and_waits_for_human(tmp_path: Path) -> None:
     repository = SQLiteRepository(tmp_path / "live_runtime.db")
     repository.initialize()
@@ -368,6 +440,68 @@ def test_runtime_uses_injected_banter_service_for_model_moves(tmp_path: Path) ->
     assert "Qwen Villain" in events[0]["payload_json"]["message"]
 
 
+def test_runtime_emits_showmatch_script_events(tmp_path: Path) -> None:
+    repository = SQLiteRepository(tmp_path / "live_showmatch.db")
+    repository.initialize()
+    settings = AppSettings.from_env(
+        env={"LEXICHESS_DB_PATH": str(repository.database_path)},
+        dotenv_path=None,
+    )
+    outputs = {("ollama", "qwen3:8b"): ["MOVE: Nxh4"]}
+
+    def fake_builder(
+        provider_name: str, settings: AppSettings, *, model: str | None = None
+    ) -> SharedScriptProvider:
+        del settings
+        resolved_model = model or "unknown"
+        return SharedScriptProvider(
+            provider_name, resolved_model, outputs[(provider_name, resolved_model)]
+        )
+
+    game_id = repository.create_game(
+        white_provider="ollama",
+        white_model="qwen3:8b",
+        black_provider="ollama",
+        black_model="qwen3:14b",
+        initial_fen="rnbqkbnr/pppppppp/8/8/7q/5N2/PPPPPPPP/RNBQKB1R w KQkq - 0 2",
+        mode="showmatch",
+        status="created",
+    )
+    repository.upsert_game_seat(
+        game_id=game_id,
+        color="white",
+        controller="model",
+        provider="ollama",
+        model="qwen3:8b",
+        display_name="Qwen Hero",
+        claimed_by=None,
+    )
+    repository.upsert_game_seat(
+        game_id=game_id,
+        color="black",
+        controller="model",
+        provider="ollama",
+        model="qwen3:14b",
+        display_name="Qwen Villain",
+        claimed_by=None,
+    )
+
+    runtime = InteractiveGameRuntime(
+        repository,
+        settings,
+        provider_builder=fake_builder,
+        showmatch_script_service=ScriptedShowmatchService(),
+    )
+
+    runtime.emit_pregame_intro(game_id)
+    runtime.advance_once(game_id)
+    events = repository.list_game_events(game_id, event_types=("showmatch_script",))
+    categories = [event["payload_json"]["category"] for event in events]
+
+    assert categories == ["pregame", "hype"]
+    assert "Qwen Villain" in events[1]["payload_json"]["message"]
+
+
 def test_live_loop_manager_runs_until_human_turn_and_can_stop(tmp_path: Path) -> None:
     repository = SQLiteRepository(tmp_path / "live_manager.db")
     repository.initialize()
@@ -418,6 +552,7 @@ def test_live_loop_manager_runs_until_human_turn_and_can_stop(tmp_path: Path) ->
         repository,
         settings,
         provider_builder=fake_builder,
+        showmatch_script_service=ScriptedShowmatchService(),
     )
     manager = LiveGameLoopManager(runtime, repository, idle_poll_seconds=0.05)
 
@@ -436,3 +571,77 @@ def test_live_loop_manager_runs_until_human_turn_and_can_stop(tmp_path: Path) ->
     stopped = manager.stop(game_id)
     assert stopped["stop_requested"] is True
     assert manager.wait_for_game(game_id, timeout=1.0) is True
+
+
+def test_live_loop_manager_emits_pregame_intro_for_showmatch(tmp_path: Path) -> None:
+    repository = SQLiteRepository(tmp_path / "live_showmatch_manager.db")
+    repository.initialize()
+    settings = AppSettings.from_env(
+        env={"LEXICHESS_DB_PATH": str(repository.database_path)},
+        dotenv_path=None,
+    )
+    outputs = {("ollama", "qwen3:8b"): ["MOVE: e4"]}
+
+    def fake_builder(
+        provider_name: str, settings: AppSettings, *, model: str | None = None
+    ) -> SharedScriptProvider:
+        del settings
+        resolved_model = model or "unknown"
+        return SharedScriptProvider(
+            provider_name, resolved_model, outputs[(provider_name, resolved_model)]
+        )
+
+    game_id = repository.create_game(
+        white_provider="ollama",
+        white_model="qwen3:8b",
+        black_provider="ollama",
+        black_model="qwen3:14b",
+        initial_fen=chess.STARTING_FEN,
+        mode="showmatch",
+        status="created",
+    )
+    repository.upsert_game_seat(
+        game_id=game_id,
+        color="white",
+        controller="model",
+        provider="ollama",
+        model="qwen3:8b",
+        display_name="Qwen Hero",
+        claimed_by=None,
+    )
+    repository.upsert_game_seat(
+        game_id=game_id,
+        color="black",
+        controller="human",
+        provider="ollama",
+        model="qwen3:14b",
+        display_name="Bob",
+        claimed_by="guest:bob",
+    )
+
+    runtime = InteractiveGameRuntime(
+        repository,
+        settings,
+        provider_builder=fake_builder,
+        showmatch_script_service=ScriptedShowmatchService(),
+    )
+    manager = LiveGameLoopManager(runtime, repository, idle_poll_seconds=0.05)
+
+    status = manager.start(game_id)
+    assert status["running"] is True
+
+    deadline = time.monotonic() + 1.0
+    while time.monotonic() < deadline:
+        current = manager.status(game_id)
+        if current["last_outcome"] == "waiting_for_human":
+            break
+        time.sleep(0.02)
+    else:
+        raise AssertionError("Live loop never reached a waiting-for-human state.")
+
+    stopped = manager.stop(game_id)
+    assert stopped["stop_requested"] is True
+    assert manager.wait_for_game(game_id, timeout=1.0) is True
+
+    events = repository.list_game_events(game_id, event_types=("showmatch_script",))
+    assert events[0]["payload_json"]["category"] == "pregame"

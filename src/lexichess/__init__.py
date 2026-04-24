@@ -9,6 +9,7 @@ from lexichess.config import (
     ProviderName,
     RefereeSettings,
     SeatController,
+    ShowmatchScriptSettings,
     StockfishSettings,
 )
 
@@ -21,5 +22,6 @@ __all__ = [
     "ProviderName",
     "RefereeSettings",
     "SeatController",
+    "ShowmatchScriptSettings",
     "StockfishSettings",
 ]

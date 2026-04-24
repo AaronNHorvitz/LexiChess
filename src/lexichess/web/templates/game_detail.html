@@ -152,4 +152,20 @@
     </div>
   </section>
 </div>
+
+<section class="panel">
+  <div class="panel-heading">
+    <h2>Showmatch Feed</h2>
+  </div>
+  <div class="list-stack">
+    {% for event in bundle.showmatch_events %}
+    <div class="list-card static-card">
+      <strong>{{ event["payload_json"]["speaker"] }} · {{ event["payload_json"]["category"] }}</strong>
+      <span>{{ event["payload_json"]["message"] }}</span>
+    </div>
+    {% else %}
+    <p class="empty-copy">No showmatch script lines recorded yet.</p>
+    {% endfor %}
+  </div>
+</section>
 {% endblock %}

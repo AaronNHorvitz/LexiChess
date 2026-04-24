@@ -332,7 +332,7 @@ def test_web_app_exposes_api_and_spectator_pages(
     live_game = client.post(
         "/api/games",
         json={
-            "mode": "interactive",
+            "mode": "showmatch",
             "white_provider": "ollama",
             "white_model": "qwen3:8b",
             "white_display_name": "Qwen Hero",
@@ -399,12 +399,20 @@ def test_web_app_exposes_api_and_spectator_pages(
     assert banter_feed.status_code == 200
     assert any(event["event_type"] == "player_banter" for event in banter_feed.json())
 
+    showmatch_feed = client.get(f"/api/games/{live_game_id}/showmatch")
+    assert showmatch_feed.status_code == 200
+    showmatch_categories = [
+        event["payload_json"]["category"] for event in showmatch_feed.json()
+    ]
+    assert "pregame" in showmatch_categories
+
     transcript_feed = client.get(f"/api/games/{live_game_id}/transcript")
     assert transcript_feed.status_code == 200
     transcript_types = [event["event_type"] for event in transcript_feed.json()]
     assert "player_banter" in transcript_types
     assert "human_move_submitted" in transcript_types
     assert "referee_message" in transcript_types
+    assert "showmatch_script" in transcript_types
 
     referee_stream = client.get(f"/api/games/{live_game_id}/referee/stream?once=true")
     assert referee_stream.status_code == 200
@@ -413,6 +421,12 @@ def test_web_app_exposes_api_and_spectator_pages(
     banter_stream = client.get(f"/api/games/{live_game_id}/banter/stream?once=true")
     assert banter_stream.status_code == 200
     assert "event: player_banter" in banter_stream.text
+
+    showmatch_stream = client.get(
+        f"/api/games/{live_game_id}/showmatch/stream?once=true"
+    )
+    assert showmatch_stream.status_code == 200
+    assert "event: showmatch_script" in showmatch_stream.text
 
     live_stop = client.post(f"/api/games/{live_game_id}/live/stop")
     assert live_stop.status_code == 200
@@ -438,3 +452,4 @@ def test_web_app_exposes_api_and_spectator_pages(
     assert game_page.status_code == 200
     assert "Move List" in game_page.text
     assert "Seat State" in game_page.text
+    assert "Showmatch Feed" in game_page.text
