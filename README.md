@@ -10,14 +10,27 @@ The long-term product direction is bigger than a CLI benchmark harness. LexiChes
 
 The big idea is simple: make LLM benchmarking rigorous enough for builders and entertaining enough for everyone else.
 
+LexiChess is meant to feel like the place where serious model evaluation stops being sterile. A great match should be measurable, replayable, funny, tense, and instantly understandable. The board is real. The rules are real. The mistakes are real. But the presentation should feel bigger than a benchmark spreadsheet: live banter, a rational referee, distinct personalities, dramatic replays, and a public ladder that people actually care about climbing.
+
+This is the pitch in one sentence: **build the home of self-hosted AI chess, where open models compete, characters come alive, and every game can become both a research artifact and a show.**
+
+What LexiChess is trying to deliver:
+
+- a trustworthy competitive environment grounded in deterministic chess rules
+- a `Chess Index` people can follow like a real league, not a one-off demo
+- a playful, character-driven spectator experience with memorable voices and rivalries
+- a product that stays self-hosted and operationally honest instead of hiding behind opaque third-party model APIs
+
 ## Project Status
 
-This repository contains a runnable backend MVP, but it is still early-stage. There is no web UI yet, and the project is not a full tournament platform or tutoring product. Accounts, billing, subscriptions, and the online app experience are still planned rather than implemented. The implemented slice is focused on the core research/runtime loop:
+This repository contains a runnable backend MVP and an early web slice, but it is still early-stage. The deterministic chess core, tournament and rating pipeline, live runtime loop, and first spectator and operator pages are already implemented. The project is not yet a polished consumer product: accounts, billing, subscriptions, full character UX, and production deployment are still planned rather than complete. The implemented slice is focused on the core research/runtime loop plus the first real app surfaces:
 
 - local-runtime adapters
 - chess move parsing and legal-move validation
 - SQLite logging for games, turns, and hallucinations
-- a CLI to run a single game between two configured local model backends
+- tournament orchestration and rating snapshots
+- a CLI to run games, tournaments, exports, diagnostics, and local web serving
+- an early FastAPI web app for spectating, control, and moderation
 
 ## Product Positioning
 
@@ -37,6 +50,98 @@ What should make LexiChess feel different:
 - a rational `Gemma 4` referee who keeps the chaos understandable
 - a character layer that turns the same chess core into very different playable personalities
 
+## Experience And System Flows
+
+These diagrams show the intended end-state product shape while staying grounded in the parts that already exist in this repo today. The deterministic chess engine, local-model runtime layer, ratings and tournament core, and an early FastAPI web slice are already implemented. Accounts, billing, polished production UX, and full `GCP` deployment remain planned.
+
+### User Experience Flow
+
+```mermaid
+flowchart TD
+    User[Player or Spectator] --> Entry{How do they enter LexiChess?}
+
+    Entry --> Start[Start a game]
+    Entry --> Join[Jump into a live game]
+    Entry --> Watch[Watch a featured showmatch]
+
+    Start --> Mode{Choose a mode}
+    Join --> Seat[Claim white or black]
+    Seat --> Handoff[Hand control to or from an LLM]
+    Watch --> Broadcast[Live board, chat, referee, audio, and highlights]
+
+    Mode --> Benchmark[Benchmark mode]
+    Mode --> Showmatch[Showmatch mode]
+    Mode --> Interactive[Interactive mode]
+
+    Benchmark --> Clean[Clean move-only play and reproducible ratings]
+    Showmatch --> Roast[Players roast each other all game]
+    Roast --> Ref[Gemma 4 mediates and coaches]
+    Interactive --> Mixed[Human, LLM, or co-pilot control]
+
+    Clean --> Index[Chess Index and benchmark reports]
+    Ref --> Broadcast
+    Mixed --> Broadcast
+```
+
+### Live Match Loop
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant User as User
+    participant Web as Web App
+    participant Runtime as Live Runtime
+    participant Player as Active Player
+    participant Chess as Chess Engine
+    participant Ref as Gemma 4 Referee
+    participant SF as Stockfish
+    participant Feed as Live Feed
+
+    User->>Web: Start, join, or watch a game
+    Web->>Runtime: Advance the next turn
+    Runtime->>Player: Prompt the active seat
+    Player-->>Runtime: Candidate move and banter
+    Runtime->>Chess: Validate move deterministically
+
+    alt Legal move
+        Chess-->>Runtime: Move accepted
+        Runtime->>SF: Analyze position and MultiPV
+        Runtime->>Ref: Generate ruling, coaching, and hype
+        Runtime->>Feed: Stream board, banter, referee, analysis, and replay events
+    else Illegal move
+        Chess-->>Runtime: Reject move
+        Runtime->>Ref: Explain the violation
+        Runtime->>Player: Request a corrected legal move
+        Runtime->>Feed: Stream warning, coaching, and retry event
+    end
+
+    User->>Web: Claim or release a seat at any time
+```
+
+### Backend Flow
+
+```mermaid
+flowchart LR
+    Browser[Browser] --> Web[FastAPI Web App]
+    Operator[Operator Controls] --> Web
+
+    Web --> Interactive[Interactive and Tournament Services]
+    Web --> DB[(SQLite now / Cloud SQL later)]
+    Web --> Blob[(Local artifacts now / Cloud Storage later)]
+    Web --> Auth[Auth, sessions, billing, and entitlements]
+
+    Interactive --> Models[Self-hosted Model Workers]
+    Interactive --> Referee[Gemma 4 Referee Service]
+    Interactive --> Stockfish[Stockfish Analysis Service]
+    Interactive --> Ratings[Chess Index and Rating Engine]
+    Interactive --> Events[Live Events and Replay Bundles]
+
+    Models --> Ollama[Ollama]
+    Models --> VLLM[vLLM]
+    Events --> Blob
+    Ratings --> DB
+```
+
 ## Implemented MVP Slice
 
 - Run repeatable model-vs-model chess games from the command line
@@ -44,6 +149,9 @@ What should make LexiChess feel different:
 - Log prompts, raw model outputs, parsed moves, and error states into SQLite
 - Track hallucinations such as illegal moves, invalid SAN, empty responses, and non-move outputs
 - Keep the runtime adapter-based so the same game loop can work with multiple self-hosted runtimes
+- Run tournaments, record rating history, and generate early `Chess Index` snapshots
+- Serve an early FastAPI web app with leaderboard, tournament, game, featured-showmatch, broadcast-control, and moderation views
+- Run interactive live games with seat claims, move submission, event feeds, referee messages, player banter, and showmatch scripting
 
 ## Local Runtime Strategy
 
@@ -349,12 +457,16 @@ The CLI writes game data to the SQLite path configured by `LEXICHESS_DB_PATH`.
 
 ## Current Architecture
 
-- `config.py`: loads environment-driven settings for self-hosted runtimes
-- `llm/`: runtime interface plus the current `Ollama` adapter
+- `config.py`: loads environment-driven settings for runtimes, showmatch services, and app behavior
+- `llm/`: runtime interface plus `Ollama` and `Stockfish` provider adapters
 - `chess/`: move extraction, SAN/UCI normalization, and legal move validation
 - `storage/`: SQLite schema and logging repository
-- `tournament/`: game runner that drives the match loop and records hallucinations
-- `cli.py`: entrypoint for running games
+- `tournament/`: match runner, scheduling, exports, and tournament orchestration
+- `analysis/`: Stockfish analysis and anchor-engine helpers
+- `index/`: rating logic, anchors, and `Chess Index` reporting
+- `interactive/`: live game loop, referee, banter, showmatch, moderation, and broadcast services
+- `web/`: FastAPI app, templates, and spectator and operator routes
+- `cli.py`: entrypoint for local operations, diagnostics, tournaments, and web serving
 
 ## Development Docs
 

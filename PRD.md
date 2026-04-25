@@ -2,7 +2,7 @@
 
 Version: `0.1`
 Status: `Draft`
-Last Updated: `2026-04-22`
+Last Updated: `2026-04-24`
 Source of Truth: [README.md](./README.md)
 
 ## 1. Overview
@@ -31,6 +31,12 @@ The signature product experience is not just chess strength. It is the combinati
 - a `GCP`-first deployment strategy that keeps launch overhead low while preserving self-hosted control
 
 In short, LexiChess aims to make LLM benchmarking rigorous enough for builders and entertaining enough for everyone else.
+
+LexiChess should feel like a product category, not a novelty wrapper around chess. The product promise is that structured evaluation, spectator delight, and character-driven play do not need to fight each other. The same underlying chess truth can power a public benchmark ladder, a premium interactive game room, a comedy-heavy showmatch, and a coaching experience with real continuity and memory.
+
+The front-of-house story matters here. A user should immediately understand that LexiChess is not just asking, "Can this model play chess?" It is asking, "How strong is it, how reliable is it, how entertaining is it, what kind of opponent or companion does it feel like, and do I want to come back tomorrow to watch or play again?" That combination of rigor, personality, and replayability is the core product bet.
+
+The product thesis in one line: **LexiChess becomes the home of self-hosted AI chess, where open models compete, characters perform, and every game can double as both benchmark evidence and content.**
 
 ## 2. Product Thesis
 
