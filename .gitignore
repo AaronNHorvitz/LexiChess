@@ -11,3 +11,4 @@ htmlcov/
 *.egg-info/
 *.db
 *.pyc
+engine/rust_engine/target/
