@@ -7,8 +7,9 @@ RUFF := $(VENV_BIN)/ruff
 MYPY := $(VENV_BIN)/mypy
 PRE_COMMIT := $(VENV_BIN)/pre-commit
 PYTHONPATH_SRC := PYTHONPATH=src
+CARGO ?= $(HOME)/.cargo/bin/cargo
 
-.PHONY: bootstrap install install-dev validate-env lint format test coverage typecheck smoke pre-commit
+.PHONY: bootstrap install install-dev validate-env lint format test coverage typecheck smoke pre-commit build-engine
 
 bootstrap:
 	scripts/bootstrap.sh
@@ -43,3 +44,6 @@ smoke:
 
 pre-commit:
 	$(PRE_COMMIT) run --all-files
+
+build-engine:
+	$(CARGO) build --manifest-path engine/rust_engine/Cargo.toml --release
