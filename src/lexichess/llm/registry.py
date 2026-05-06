@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from lexichess.config import AppSettings, ProviderName
 from lexichess.llm.base import MoveProvider
-from lexichess.llm.providers import OllamaProvider, StockfishMoveProvider
+from lexichess.llm.providers import (
+    LexiEngineProvider,
+    OllamaProvider,
+    StockfishMoveProvider,
+)
 
 
 def build_provider(
@@ -33,6 +37,13 @@ def build_provider(
             default_depth=settings.stockfish.depth,
             default_multipv=settings.stockfish.multipv,
             movetime_ms=settings.stockfish.movetime_ms,
+        )
+
+    if normalized_name is ProviderName.LEXI_ENGINE:
+        return LexiEngineProvider(
+            path=settings.lexi_engine.path,
+            profile=model or settings.lexi_engine.profile,
+            depth=settings.lexi_engine.depth,
         )
 
     raise ValueError(f"Unsupported provider: {provider_name}")

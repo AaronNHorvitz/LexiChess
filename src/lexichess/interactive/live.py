@@ -805,6 +805,8 @@ class InteractiveGameRuntime:
     ) -> tuple[str, str]:
         if provider.provider_name == "stockfish":
             return "engine_move", "engine_anchor"
+        if provider.provider_name == "lexi_engine":
+            return "engine_move", "engine_personality"
         return prompt_template.kind, prompt_template.version
 
     def _require_game(self, game_id: int) -> dict[str, Any]:

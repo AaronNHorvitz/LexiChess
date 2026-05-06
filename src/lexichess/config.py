@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 class ProviderName(str, Enum):
     OLLAMA = "ollama"
     STOCKFISH = "stockfish"
+    LEXI_ENGINE = "lexi_engine"
 
 
 class EnvironmentProfile(str, Enum):
@@ -122,6 +123,13 @@ class StockfishSettings:
 
 
 @dataclass(frozen=True, slots=True)
+class LexiEngineSettings:
+    path: str = "engine/rust_engine/target/release/lexichess-engine"
+    profile: str = "balanced"
+    depth: int = 3
+
+
+@dataclass(frozen=True, slots=True)
 class FeatureFlags:
     enabled: frozenset[str]
 
@@ -152,6 +160,7 @@ class AppSettings:
     showmatch_scripts: ShowmatchScriptSettings
     ollama: OllamaSettings
     stockfish: StockfishSettings
+    lexi_engine: LexiEngineSettings
 
     @classmethod
     def from_env(
@@ -343,6 +352,14 @@ class AppSettings:
                 multipv=_parse_int(raw.get("STOCKFISH_MULTIPV"), 3),
                 movetime_ms=_parse_optional_int(raw.get("STOCKFISH_MOVETIME_MS")),
             ),
+            lexi_engine=LexiEngineSettings(
+                path=raw.get(
+                    "LEXI_ENGINE_PATH",
+                    "engine/rust_engine/target/release/lexichess-engine",
+                ).strip(),
+                profile=raw.get("LEXI_ENGINE_PROFILE", "balanced").strip(),
+                depth=_parse_int(raw.get("LEXI_ENGINE_DEPTH"), 3),
+            ),
         )
 
     def model_for(self, provider: ProviderName | str) -> str:
@@ -351,6 +368,8 @@ class AppSettings:
             return self.ollama.model
         if provider_name is ProviderName.STOCKFISH:
             return self.stockfish.profile
+        if provider_name is ProviderName.LEXI_ENGINE:
+            return self.lexi_engine.profile
         raise ValueError(f"Unsupported provider: {provider}")
 
     def to_dict(self, *, redact_secrets: bool | None = None) -> dict[str, Any]:
@@ -432,6 +451,11 @@ class AppSettings:
                 "depth": self.stockfish.depth,
                 "multipv": self.stockfish.multipv,
                 "movetime_ms": self.stockfish.movetime_ms,
+            },
+            "lexi_engine": {
+                "path": self.lexi_engine.path,
+                "profile": self.lexi_engine.profile,
+                "depth": self.lexi_engine.depth,
             },
         }
 
