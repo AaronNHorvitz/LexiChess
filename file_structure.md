@@ -1,26 +1,39 @@
-# LexiChess MVP Architecture
+# LexiChess Repository Architecture
 
-This document describes the current MVP structure of LexiChess and the architectural direction it is meant to support.
+This document describes the current repository structure of LexiChess and the architectural direction it is meant to support.
 
-The repository now contains a working backend slice for running and logging games, while still leaving larger product features like tournaments, UI, commentary, and tutoring for later phases.
+The repository already contains a working backend and early web slice. It now also reserves clear top-level workspaces for future engine and research efforts, so the product can evolve without mixing experimental work directly into the shipping app.
 
 ## Design Goals
 
 - Keep the chess runtime independent from any one model family
 - Support self-hosted local model runtimes from the start
-- Build the smallest useful MVP before expanding into spectator experiences and broader product features
+- Keep the shipping app, the future engine, and the research pipeline in one repository while they are still tightly coupled
+- Build the smallest useful product slice before expanding into larger engine and training efforts
 - Log enough detail to study move quality, parsing failures, hallucinations, and corrections
+- Keep future engine and personality work original, non-infringing, and operationally separate from the web app
 
-## Current Layout
+## Current And Planned Layout
 
 ```text
 lexichess/
 ├── .env.example
 ├── CHANGELOG.md
 ├── CODE_OF_CONDUCT.md
+├── contracts/
+│   └── engine/               # Future app-to-engine integration contracts
 ├── docs/
-│   └── ...
+│   ├── adr/
+│   └── architecture/         # Higher-level architecture notes
+├── engine/
+│   ├── README.md
+│   └── rust_engine/          # Future Rust CPU-first engine workspace
 ├── Makefile
+├── research/
+│   ├── datasets/             # Provenance and dataset manifests
+│   ├── evaluation/           # Offline research evaluation
+│   ├── style_clustering/     # Play-style clustering work
+│   └── training/             # Training experiments and configs
 ├── scripts/
 │   └── ...
 ├── src/
@@ -49,16 +62,52 @@ lexichess/
 │           ├── models.py           # Game and turn domain models
 │           └── runner.py           # Match loop orchestration
 ├── tests/
-│   ├── chess/
-│   ├── llm/
-│   ├── storage/
-│   └── tournament/
+│   └── ...                         # Product-facing tests only
 ├── README.md
 ├── CONTRIBUTING.md
 ├── file_structure.md
 ├── pyproject.toml
 └── TASKS.md
 ```
+
+## Workspace Responsibilities
+
+### `src/lexichess/`
+
+This is the shipping product workspace. It contains the Python app, CLI, web surfaces, data layer, tournaments, ratings, live runtime loop, and current local-model integrations.
+
+### `engine/`
+
+This workspace is reserved for future low-cost engines that should not be tangled into the Python app package.
+
+The initial target is a Rust CPU-first engine that can eventually support:
+
+- cheap concurrent gameplay
+- original style profiles
+- benchmark anchors
+- training partners and personality-backed opponents
+
+### `research/`
+
+This workspace is reserved for experiments that are not yet stable product features.
+
+It should hold:
+
+- corpus provenance
+- style clustering experiments
+- training runs
+- offline evaluation reports
+
+### `contracts/engine/`
+
+This workspace is reserved for the stable boundary between the app and future engine work.
+
+Likely contents:
+
+- request and response schemas
+- personality or style profile formats
+- reproducibility manifests
+- bridge-layer notes for Python-to-Rust integration
 
 ## Layer Responsibilities
 
@@ -113,8 +162,8 @@ This separation matters because local runtimes expose different protocols, batch
 
 The next structural additions will likely be:
 
-- richer tournament orchestration
-- replay and export utilities
-- self-hosted runtime expansion beyond Ollama
-- Stockfish-backed analysis services
-- a web-facing spectator layer
+- first engine contract documents under `contracts/engine/`
+- first research manifests under `research/datasets/`
+- initial style-clustering notebooks or scripts under `research/style_clustering/`
+- a Rust engine workspace under `engine/rust_engine/`
+- promotion rules for moving research outputs into `src/lexichess/`

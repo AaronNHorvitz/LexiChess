@@ -9,6 +9,7 @@ Working rules for this file:
 - Treat `GCP` as the default cloud platform for the paid online product.
 - Treat the public `Chess Index` as licensing-gated from the start.
 - Treat the gameplay layer and the persona layer as intentionally separable.
+- Treat branding, lessons, personas, voices, avatars, and marketing copy as wholly original and non-infringing.
 
 ## [ ] Immediate Build Queue
 
@@ -27,6 +28,10 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [x] `1.19` Add documentation index page
 - [x] `1.20` Add product glossary
 - [ ] `1.22` Remove stale generated artifacts from source control
+- [ ] `1.23` Document original-product and non-infringement boundary
+- [ ] `1.24` Add no-affiliation and no-endorsement copy standard
+- [ ] `1.25` Add trademark and naming review checklist
+- [ ] `1.26` Add original content policy for lessons, personas, voices, and avatars
 - [x] `2.4` Add editable install workflow
 - [x] `2.5` Add lockfile workflow
 - [x] `2.6` Add local bootstrap script
@@ -137,7 +142,7 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [x] `7.11` Add Elo update engine
 - [ ] `7.12` Add Glicko-style confidence tracking
 
-## [ ] Sprint 1: Product Alignment & Repository Foundation (20/22 done)
+## [ ] Sprint 1: Product Alignment & Repository Foundation (20/26 done)
 
 ### [ ] 1. Product Alignment & Repository Foundation
 
@@ -163,6 +168,10 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [x] 1.20 Add product glossary
 - [x] 1.21 Add contributor quickstart page
 - [ ] 1.22 Remove stale generated artifacts from source control
+- [ ] 1.23 Document original-product and non-infringement boundary
+- [ ] 1.24 Add no-affiliation and no-endorsement copy standard
+- [ ] 1.25 Add trademark and naming review checklist
+- [ ] 1.26 Add original content policy for lessons, personas, voices, and avatars
 
 ## [ ] Sprint 2: Local Dev Environment, Tooling & CI (16/22 done)
 
@@ -656,7 +665,7 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [ ] 15.29 Build transcript export action
 - [ ] 15.30 Add live game UI tests
 
-## [ ] Sprint 16: Personality System, Memory & Character Packs (12/32 done)
+## [ ] Sprint 16: Personality System, Memory & Character Packs (12/36 done)
 
 ### [ ] 16. Personality System, Memory & Character Packs
 
@@ -692,8 +701,12 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [ ] 16.22 Add personality regression tests
 - [ ] 16.23 Add persona moderation rules
 - [ ] 16.24 Add character analytics hooks
+- [ ] 16.25 Add no-real-person-impersonation rules for personas
+- [ ] 16.26 Add no-legacy-brand-mimicry rules for personas
+- [ ] 16.27 Add original character naming and biography guidelines
+- [ ] 16.28 Add persona IP review checklist
 
-## [ ] Sprint 17: Voice, TTS & Avatar Presentation (0/24 done)
+## [ ] Sprint 17: Voice, TTS & Avatar Presentation (0/28 done)
 
 ### [ ] 17. Voice, TTS & Avatar Presentation
 
@@ -721,6 +734,10 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [ ] 17.22 Add avatar accessibility fallback
 - [ ] 17.23 Add replay audio scrubber
 - [ ] 17.24 Add advanced animated avatar gate for post-launch expansion
+- [ ] 17.25 Add no-unlicensed voice cloning policy
+- [ ] 17.26 Add synthetic-voice disclosure guidelines
+- [ ] 17.27 Add likeness originality review for avatars
+- [ ] 17.28 Add voice and avatar IP QA checklist
 
 ## [ ] Sprint 18: Referee, Showmatches & Broadcast Engine (21/28 done)
 
@@ -755,7 +772,7 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [ ] 18.27 Add showmatch analytics dashboard
 - [ ] 18.28 Add showmatch QA checklist
 
-## [ ] Sprint 19: Public Chess Index, Community & Discovery (3/24 done)
+## [ ] Sprint 19: Public Chess Index, Community & Discovery (3/31 done)
 
 ### [ ] 19. Public Chess Index, Community & Discovery
 
@@ -783,8 +800,15 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [ ] 19.22 Add sitemap and robots configuration
 - [ ] 19.23 Add web analytics controls
 - [ ] 19.24 Add community QA pass
+- [ ] 19.25 Add chess-only no-politics community policy
+- [ ] 19.26 Add game-linked discussion threads
+- [ ] 19.27 Add club and study-group discovery surfaces
+- [ ] 19.28 Add post-game comment threads
+- [ ] 19.29 Add no-betting and no-wager policy disclosure
+- [ ] 19.30 Add fun-loving apolitical community tone guide
+- [ ] 19.31 Add original-product marketing copy review pass
 
-## [ ] Sprint 20: Admin, Support & Internal Operations (0/24 done)
+## [ ] Sprint 20: Admin, Support & Internal Operations (0/28 done)
 
 ### [ ] 20. Admin, Support & Internal Operations
 
@@ -812,8 +836,12 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [ ] 20.22 Add legal-review status admin tools
 - [ ] 20.23 Add billing admin page
 - [ ] 20.24 Add support runbook docs
+- [ ] 20.25 Add anti-cheat review console
+- [ ] 20.26 Add warning history and escalation controls
+- [ ] 20.27 Add off-topic and politics moderation controls
+- [ ] 20.28 Add content and IP review queue for public-facing assets
 
-## [ ] Sprint 21: Reliability, Security & Privacy Hardening (0/31 done)
+## [ ] Sprint 21: Reliability, Security & Privacy Hardening (0/38 done)
 
 ### [ ] 21. Reliability, Security & Privacy Hardening
 
@@ -848,6 +876,13 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [ ] 21.29 Add transcript redaction and deletion flows
 - [ ] 21.30 Add account-takeover response playbook
 - [ ] 21.31 Add security review checklist
+- [ ] 21.32 Add official-client-only gameplay submission policy
+- [ ] 21.33 Add anti-cheat telemetry collection
+- [ ] 21.34 Add engine-correlation review pipeline
+- [ ] 21.35 Add duplicate-device and alt-account abuse heuristics
+- [ ] 21.36 Add rated-play no-public-API enforcement tests
+- [ ] 21.37 Add trademark and brand confusion review checklist
+- [ ] 21.38 Add no-implied-endorsement launch review gate
 
 ## [ ] Sprint 22: Launch Preparation, Analytics & Growth (0/26 done)
 
@@ -866,7 +901,7 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [ ] 22.11 Add load rehearsal plan
 - [ ] 22.12 Add launch-day runbook
 - [ ] 22.13 Add post-launch monitoring checklist
-- [ ] 22.14 Add first-paid-user onboarding checklist
+- [ ] 22.14 Add first-paid-user onb
 - [ ] 22.15 Add conversion instrumentation
 - [ ] 22.16 Add retention instrumentation
 - [ ] 22.17 Add churn instrumentation
@@ -880,7 +915,7 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [ ] 22.25 Add public bug bash
 - [ ] 22.26 Add launch retro template
 
-## [ ] Sprint 23: Post-Launch Expansion Tracks (0/18 done)
+## [ ] Sprint 23: Post-Launch Expansion Tracks (0/27 done)
 
 ### [ ] 23. Post-Launch Expansion Tracks
 
@@ -894,7 +929,7 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [ ] 23.8 Add richer lip-sync workflow
 - [ ] 23.9 Add longer-term character memory system
 - [ ] 23.10 Add team and organization workspaces
-- [ ] 23.11 Add API and SDK surface for power users
+- [ ] 23.11 Add read-only API and SDK surface for power users
 - [ ] 23.12 Add webhook support
 - [ ] 23.13 Add enterprise billing and invoicing options
 - [ ] 23.14 Add private customer model-roster uploads
@@ -902,3 +937,12 @@ This queue pulls the highest-leverage unchecked work out of the early sprints an
 - [ ] 23.16 Add sponsored broadcast surfaces
 - [ ] 23.17 Add referral or affiliate flows
 - [ ] 23.18 Add v2 roadmap review
+- [ ] 23.19 Add lesson authoring system
+- [ ] 23.20 Add opening lesson track
+- [ ] 23.21 Add tactics lesson track
+- [ ] 23.22 Add endgame lesson track
+- [ ] 23.23 Add post-game coach recap generator
+- [ ] 23.24 Add adaptive training plan
+- [ ] 23.25 Add human-vs-human direct challenge rooms
+- [ ] 23.26 Add optional voice-chat rooms
+- [ ] 23.27 Add optional webcam rooms

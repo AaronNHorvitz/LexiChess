@@ -14,12 +14,15 @@ LexiChess is meant to feel like the place where serious model evaluation stops b
 
 This is the pitch in one sentence: **build the home of self-hosted AI chess, where open models compete, characters come alive, and every game can become both a research artifact and a show.**
 
+LexiChess should also be unmistakably original. It is meant to be an `LLM-first`, self-hosted, web-native invention, not a remake, sequel, clone, compatibility layer, or unofficial continuation of any earlier chess title. The product should reach its goals through new technology, original writing, original character systems, original lesson design, and original community culture.
+
 What LexiChess is trying to deliver:
 
 - a trustworthy competitive environment grounded in deterministic chess rules
 - a `Chess Index` people can follow like a real league, not a one-off demo
 - a playful, character-driven spectator experience with memorable voices and rivalries
 - a product that stays self-hosted and operationally honest instead of hiding behind opaque third-party model APIs
+- a fun-loving, chess-only, clearly apolitical community centered on games, learning, clips, and rivalry
 
 ## Project Status
 
@@ -49,6 +52,18 @@ What should make LexiChess feel different:
 - a comedy-forward showmatch layer without contaminating benchmark mode
 - a rational `Gemma 4` referee who keeps the chaos understandable
 - a character layer that turns the same chess core into very different playable personalities
+
+## Original Product Boundary
+
+LexiChess should be built and marketed as a wholly original chess product category.
+
+Product boundaries:
+
+- no reuse of third-party brand names, lesson copy, scripts, UI trade dress, character identities, or catchphrases
+- no implication of endorsement, affiliation, or continuity with any prior chess software line without explicit written permission
+- no imitation of real people through personas, voice cloning, likeness-driven avatars, or marketing copy unless formal rights have been secured
+- no reliance on nostalgia language as the product strategy; the product should stand on original technology, original character design, and original teaching systems
+- warmth, clarity, encouragement, humor, and memorable coaching are product qualities we want to deliver, not assets we should borrow
 
 ## Experience And System Flows
 
@@ -262,6 +277,30 @@ Planned broadcast features:
 - online recording of the board, player banter, referee rulings, and replay assets
 - a dramatic end-of-game call for checkmate and decisive finishes, including `GOOOOOAAAAAAALL and CHECKMATE!`-style finishers
 
+## Planned Chess-Only Community Rules
+
+LexiChess should feel like an internet escape hatch, not a smaller copy of the rest of social media. The intended community posture is simple: chess, coaching, rivalry, and game culture are welcome; politics and unrelated internet warfare are not.
+
+Planned community rules:
+
+- no politics, political campaigning, or culture-war posting
+- no hate, slurs, harassment, threats, or doxxing
+- no spam, scams, or off-platform solicitation
+- no engine assistance or outside AI help in human competitive play
+- no betting, staking, peer-to-peer cash matches, or gambling-style features at launch
+- no generic off-topic posting; social features should stay anchored to games, lessons, clips, and chess discussion
+
+Planned enforcement posture:
+
+- warning on first low-severity violation
+- stronger temporary restrictions on repeated violations
+- permanent ban after repeated disregard for community rules
+- immediate suspension or ban for severe abuse, cheating rings, threats, fraud, or ban evasion
+
+The exact enforcement system can evolve, but the product intent should stay firm: LexiChess is a chess-first community, not a general-purpose social platform.
+
+The community tone should feel fun-loving, welcoming, competitive, and clearly apolitical. Good humor, game stories, lessons, clips, and rivalries belong here. Generic internet warfare does not.
+
 ## Planned Human-In-The-Loop Play
 
 The website should support more than passive spectating. A core part of the product is letting people enter and leave games fluidly.
@@ -281,6 +320,11 @@ Planned control handoff rules:
 - the website chat should show whether the user is talking to the current player, the opposing player, or `Gemma 4`
 - benchmark-rated games should remain clearly separated from interactive handoff games
 
+Important build order:
+
+- ship `AI-first` play, coaching, replays, and character experiences before expanding deeply into general human-vs-human social features
+- add human-vs-human rooms on top of the stable chess and personality core instead of letting social infrastructure define the product too early
+
 ## Planned Avatar And Personality Experience
 
 LexiChess should not feel like a generic chat wrapper around chess. A core part of the product is letting users play with distinct AI chess characters that have recognizable voices, avatars, and attitudes.
@@ -289,6 +333,7 @@ Planned character features:
 
 - selectable personalities such as serious coach, calm master, wholesome encourager, snarky rival, blitz goblin, and sports-announcer energy
 - a consistent separation between `gameplay model` and `persona layer`, so the same chess core can power multiple characters
+- original fictional character roles, original naming, and original writing rather than imitation of legacy software characters or public figures
 - voice presets that make the characters feel different in live play, replays, and showmatches
 - avatar surfaces ranging from simple portraits and reactions to richer animated experiences later
 - memory and preference hooks so a character can adapt to a user’s skill level, recurring style, or favorite mode over time
@@ -298,6 +343,24 @@ Important product rule:
 
 - benchmark mode should optimize for reproducibility and clean data
 - character mode should optimize for delight, retention, humor, teaching style, and memorable play sessions
+
+## Planned Coaching And Lesson Experience
+
+LexiChess should eventually support a warm, coach-first learning experience rather than just surfacing engine lines and calling that instruction.
+
+Planned lesson and coaching features:
+
+- structured beginner-to-advanced lesson tracks
+- coach-guided walkthroughs of openings, tactics, plans, and endgames
+- post-move explanations that focus on ideas instead of raw evaluation dumps
+- mistake review with encouragement, not sterile scolding
+- annotated replay mode for famous games and user games
+- puzzle ladders, tactic drills, and endgame sparring
+- adaptive lesson difficulty based on recurring mistakes and improvement goals
+- coach personas that feel distinct: calm teacher, aggressive tactician, supportive guide, blunt master, playful rival
+- an original lesson grammar, original curriculum structure, and original coaching scripts built specifically for an LLM-native product
+
+The product goal is to invent a better chess-learning experience with modern LLMs, self-hosted inference, deterministic engines, and original UX. Warmth, clarity, encouragement, and personality are design targets; copying prior commercial chess products is not.
 
 ## Planned Online Product Model
 
@@ -318,6 +381,8 @@ Planned product foundations:
 Important boundary:
 
 - `paid online app` does not mean relying on third-party model APIs. The goal is still to serve all gameplay, referee, and analysis workloads from infrastructure we control, with `GCP` as the primary cloud platform.
+- launch monetization should focus on subscriptions and entitlements, not player-to-player money movement
+- the product should not include betting, wagering, or cash-prize game mechanics in the initial product
 
 ## Planned Broadcast Match Loop
 
@@ -334,6 +399,35 @@ Important boundary:
 The important split is that `benchmark mode` stays clean for ratings and evaluation, while `showmatch mode` and `interactive mode` are allowed to be loud, unhinged, funny, and entertaining. The chess engine remains the deterministic source of truth for legality in every mode.
 
 Another important split is that `chess skill` and `character presentation` should stay separable. The gameplay layer chooses or validates moves, while the persona, voice, and avatar layers decide how the experience feels to the user.
+
+## Planned Fair Play And Anti-Cheat Boundaries
+
+LexiChess should be generous about fun and strict about competitive integrity.
+
+Planned fair-play boundaries:
+
+- no public gameplay API for rated or live competitive play
+- no assumption that hiding an API alone stops cheating; anti-cheat should also use server-side validation, telemetry, engine-correlation review, and moderation
+- official clients should be the only supported path for live competitive move submission
+- benchmark, interactive, and competitive human ladders should have distinct trust and anti-cheat policies
+- casual unrated play can be more permissive, but rated human competition should be actively defended
+
+The goal is to keep human chess honest without confusing the platform's `AI-assisted` modes with its `human competitive` modes.
+
+## Planned Human Social Play Expansion
+
+After the AI-first core is stable, LexiChess should expand into richer human social play.
+
+Planned later additions:
+
+- human-vs-human game rooms
+- direct challenges and private rooms
+- text chat around live and completed games
+- voice chat in premium or private rooms
+- optional webcam support for human-vs-human social play
+- post-game discussion threads anchored to a specific game or replay
+
+These features should remain chess-centered. The social graph should orbit games, lessons, and clubs rather than turning into a generic posting feed.
 
 ## Planned GCP-First Architecture
 
@@ -394,11 +488,14 @@ lexichess/
 ├── CHANGELOG.md
 ├── CONTRIBUTING.md
 ├── CODE_OF_CONDUCT.md
+├── contracts/
 ├── docs/
+├── engine/
 ├── Makefile
 ├── README.md
 ├── file_structure.md
 ├── pyproject.toml
+├── research/
 ├── scripts/
 ├── src/
 │   └── lexichess/
@@ -467,6 +564,9 @@ The CLI writes game data to the SQLite path configured by `LEXICHESS_DB_PATH`.
 - `interactive/`: live game loop, referee, banter, showmatch, moderation, and broadcast services
 - `web/`: FastAPI app, templates, and spectator and operator routes
 - `cli.py`: entrypoint for local operations, diagnostics, tournaments, and web serving
+- `engine/`: reserved workspace for a future Rust CPU-first engine and related engine tooling
+- `research/`: reserved workspace for dataset provenance, style clustering, training, and offline evaluation
+- `contracts/engine/`: reserved workspace for stable app-to-engine integration contracts
 
 ## Development Docs
 
@@ -488,8 +588,15 @@ The CLI writes game data to the SQLite path configured by `LEXICHESS_DB_PATH`.
 - define subscription plans, entitlements, and usage-metering rules for compute-heavy features
 - add user-owned game history, replay library, and saved clip surfaces
 - add a first character system with selectable personalities, voices, and lightweight avatar presentation
+- add a warm coaching and lesson system with structured chess instruction
+- codify original-product, no-infringement, and no-implied-endorsement rules across branding, lessons, personas, voices, and avatars
+- author original lesson, persona, voice, and community-tone guidelines for the product
 - prototype an optional local `Gemma` showmatch player preset plus the local `Gemma 4` referee
 - add human-join, human-takeover, and LLM-takeover flows to the web app design
+- add game-centric community features with chess-only moderation rules
+- add fair-play and anti-cheat systems for human competitive play
+- keep rated human play off any public gameplay API surface
+- keep betting and player-to-player cash mechanics out of the launch plan
 - add Stockfish-backed MultiPV analysis for 2-5 move lookahead
 - add a `vLLM` runtime for larger self-hosted tournament servers
 - stand up the initial `GCP` foundation with `Cloud Run`, `Cloud SQL`, `Cloud Storage`, `Artifact Registry`, and `Secret Manager`
@@ -512,8 +619,9 @@ The CLI writes game data to the SQLite path configured by `LEXICHESS_DB_PATH`.
 
 These ideas are intentionally out of the MVP path for now:
 
-- Tutoring and annotated lessons
+- richer tutoring and annotated lessons
 - advanced fully animated avatar experiences
+- voice and webcam social rooms for human-vs-human play
 - Research dashboards and analytics
 - Broader ecosystem integrations and partner surfaces
 

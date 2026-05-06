@@ -9,6 +9,7 @@ This directory holds repository policies and project-supporting documentation th
 - [Changelog Policy](./changelog_policy.md)
 - [Glossary](./glossary.md)
 - [ADR Index](./adr/README.md)
+- [Architecture Workspace](./architecture/README.md)
 
 ## Root-Level Docs
 

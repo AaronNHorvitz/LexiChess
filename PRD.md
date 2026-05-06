@@ -2,7 +2,7 @@
 
 Version: `0.1`
 Status: `Draft`
-Last Updated: `2026-04-24`
+Last Updated: `2026-04-25`
 Source of Truth: [README.md](./README.md)
 
 ## 1. Overview
@@ -29,6 +29,7 @@ The signature product experience is not just chess strength. It is the combinati
 - a personality-driven play layer that makes users care which character they are playing with
 - a rational `Gemma 4` referee who mediates, corrects illegal moves, and keeps the chaos grounded
 - a `GCP`-first deployment strategy that keeps launch overhead low while preserving self-hosted control
+- a chess-first social environment that explicitly avoids politics, wagering, and generic internet sludge
 
 In short, LexiChess aims to make LLM benchmarking rigorous enough for builders and entertaining enough for everyone else.
 
@@ -37,6 +38,8 @@ LexiChess should feel like a product category, not a novelty wrapper around ches
 The front-of-house story matters here. A user should immediately understand that LexiChess is not just asking, "Can this model play chess?" It is asking, "How strong is it, how reliable is it, how entertaining is it, what kind of opponent or companion does it feel like, and do I want to come back tomorrow to watch or play again?" That combination of rigor, personality, and replayability is the core product bet.
 
 The product thesis in one line: **LexiChess becomes the home of self-hosted AI chess, where open models compete, characters perform, and every game can double as both benchmark evidence and content.**
+
+LexiChess must also be built as a wholly original, `LLM-first` product. It is not intended to be a remake, sequel, clone, compatibility layer, or unofficial continuation of any historical chess software line. Similar user outcomes such as warmth, humor, coaching quality, and memorable character play should come from original curriculum, original personas, original voice direction, original visuals, and original system design.
 
 ## 2. Product Thesis
 
@@ -70,6 +73,7 @@ Developers and enthusiasts currently face several gaps:
 5. Human players cannot usually fluidly swap control with models in the middle of a game while preserving continuity and replayability.
 6. Model hallucinations are often logged as failures, but not turned into visible, teachable, funny, or shareable moments.
 7. Most chess-with-AI experiences feel generic and forgettable instead of character-driven, social, and worth returning to.
+8. Many online communities that could support chess discussion become unusable because they drift into politics, harassment, betting, cheating, or generic off-topic noise.
 
 ## 4. Vision
 
@@ -82,6 +86,7 @@ LexiChess becomes the home of the `Chess Index`: a rolling public ladder of self
 - users can choose personalities they want to face, learn from, or team up with
 - a referee model explains rule breaks and mediates player banter
 - every game becomes both a research artifact and a piece of content
+- community interaction remains anchored to chess, lessons, clubs, clips, and game discussion instead of general-purpose posting
 
 ## 5. Goals
 
@@ -94,6 +99,9 @@ LexiChess becomes the home of the `Chess Index`: a rolling public ladder of self
 - Maintain a public `Chess Index` that can ingest new permissively licensed models over time
 - Support a paid product model with accounts, subscriptions, entitlements, and user-owned game history
 - Build a character system that gives users memorable AI personalities, not just unnamed model endpoints
+- Build a chess-only community with clear moderation boundaries and strong fair-play expectations
+- Build a warm, structured coaching and lesson layer on top of the core gameplay product
+- Build an original product category with its own brand, voices, lessons, characters, and community identity
 
 ### 5.2 User Goals
 
@@ -104,6 +112,8 @@ LexiChess becomes the home of the `Chess Index`: a rolling public ladder of self
 - Jump into an ongoing game without restarting it
 - See exactly when a move was illegal and how the referee handled it
 - Replay matches with transcript, audio, analysis, and control handoff history
+- Learn chess in a coach-first environment that feels encouraging and memorable
+- Participate in a chess-only community without politics, betting, or generic social-media noise
 
 ### 5.3 Technical Goals
 
@@ -113,6 +123,7 @@ LexiChess becomes the home of the `Chess Index`: a rolling public ladder of self
 - Preserve reproducibility across model revisions, runtimes, quantizations, and hardware classes
 - Build around licensing-safe model governance for the public ladder
 - Use `GCP` as the primary deployment target for the paid online product
+- Keep competitive human play off a public gameplay API surface
 
 ## 6. Non-Goals
 
@@ -124,6 +135,10 @@ The following are explicitly out of scope for the first major product release un
 - a full tutoring curriculum as part of the initial launch
 - high-fidelity 3D avatar production as a launch blocker
 - claiming that public ratings equal official FIDE Elo
+- player-to-player betting, wagering, or cash-prize match mechanics in the initial product
+- a public gameplay API that makes rated human play easy to automate against
+- recreating or implying continuity with any legacy chess software brand without rights
+- using third-party marks, likenesses, voiceprints, scripts, or trade dress without permission
 
 ## 7. Target Users
 
@@ -181,6 +196,18 @@ Every match should be structured so it can be replayed, analyzed, clipped, and s
 
 The gameplay layer and the character layer should be related but distinct. Chess ability, persona, voice, and avatar presentation should not be tangled together so tightly that the product becomes hard to benchmark, maintain, or expand.
 
+### 8.8 Chess-Only Community Focus
+
+The product should remain intentionally narrow. Social features should deepen chess participation, not turn LexiChess into a general-purpose social network.
+
+### 8.9 AI-First Product Sequencing
+
+The product should reach a strong level of quality in AI play, coaching, replays, and character experiences before investing deeply in human-to-human voice and webcam features.
+
+### 8.10 Original IP-Safe Product Design
+
+Brand, characters, lessons, voices, avatars, and marketing copy must be original to LexiChess. The product should not imply endorsement, affiliation, or identity overlap with real people, prior chess brands, or legacy software properties unless explicit written rights have been secured.
+
 ## 9. Product Modes
 
 ### 9.1 Benchmark Mode
@@ -223,6 +250,18 @@ Characteristics:
 - users can hand a side back to an LLM
 - user chat can target players or referee
 - control handoffs are logged and replayable
+
+### 9.4 Human Social Play
+
+Purpose:
+
+- allow human players to play, discuss, and socialize around chess without diluting the AI-first product core
+
+Characteristics:
+
+- initially centered on direct challenges, private rooms, and game-linked discussion
+- optional voice and webcam support later, after the core AI and replay experience is strong
+- moderated under a chess-only code of conduct
 
 ## 10. Core Concepts
 
@@ -296,6 +335,8 @@ This allows LexiChess to reuse the same chess core across multiple personalities
 - As a player, I want to hand a side back to a model without starting over.
 - As a player, I want to chat with the model on my side before deciding whether I or the model should move.
 - As a player, I want to choose whether I am playing with a serious coach, a calm master, a trash-talker, or another personality.
+- As a player, I want post-game review and lessons that feel warm and human instead of robotic.
+- As a player, I want to talk about games with other players without the platform turning into politics or general internet fighting.
 
 ### 11.3 Power User Stories
 
@@ -309,6 +350,7 @@ This allows LexiChess to reuse the same chess core across multiple personalities
 - As an operator, I want to control which models are available in which plans.
 - As an operator, I want to control which personalities, voices, and avatars are available in which plans.
 - As an operator, I want to observe system health, match operations, and GPU load during featured events.
+- As an operator, I want clear moderation and fair-play tools for politics violations, harassment, cheating, and off-topic abuse.
 
 ## 12. Functional Requirements
 
@@ -332,6 +374,11 @@ The system must:
 - gate premium features based on entitlement checks
 - expose subscription state to the user interface
 
+The system must not:
+
+- include player-to-player wagering or betting flows in the initial product
+- rely on prize-pool or gambling-style mechanics to drive engagement
+
 ### 12.3 Chess Index Governance
 
 The system must:
@@ -352,6 +399,7 @@ The system must:
 - support benchmark, showmatch, and interactive modes
 - preserve board state through control handoffs
 - support replay and export
+- keep AI-first play and coaching as the earliest polished product surface before broader social expansions
 
 ### 12.5 Deterministic Rules and Illegal Move Handling
 
@@ -384,8 +432,23 @@ The system must:
 - allow premium personalities, premium voices, or premium avatar packs as monetizable product surfaces
 - support lightweight avatar presentation at launch, such as portraits, reactions, and speaking indicators
 - support longer-term user preferences for character tone, coaching style, and voice
+- require persona, voice, and avatar concepts to be original and non-infringing
+- prohibit real-person imitation or implied endorsement without explicit rights
 
-### 12.8 Showmatch Experience
+### 12.8 Coaching And Lesson Experience
+
+The system must:
+
+- support structured lesson tracks over time
+- support coach-guided post-game reviews
+- support tactic, endgame, and planning drills
+- explain moves in idea-centric language rather than only raw engine evaluations
+- adapt lesson difficulty to user progress and recurring mistakes
+- support tutor-style personas distinct from benchmark competitors and roast-showmatch personalities
+- use original lesson architecture, original scripts, and original naming
+- avoid copying the lesson structure, trade dress, or branded framing of prior commercial chess products
+
+### 12.9 Showmatch Experience
 
 The system must:
 
@@ -394,7 +457,7 @@ The system must:
 - support quote-worthy moments, illegal-move callouts, and endgame hype
 - allow an optional `Gemma` player preset in showmatches
 
-### 12.9 Interactive Control Handoffs
+### 12.10 Interactive Control Handoffs
 
 The system must:
 
@@ -404,7 +467,7 @@ The system must:
 - preserve a timestamped control timeline
 - ensure replays reflect controller changes accurately
 
-### 12.10 Spectator and Replay Features
+### 12.11 Spectator and Replay Features
 
 The system must:
 
@@ -414,7 +477,26 @@ The system must:
 - support bookmarks for highlights such as illegal moves, blunders, swings, and checkmate
 - persist transcripts, analysis, and audio references
 
-### 12.11 Ratings and Benchmarking
+### 12.12 Community, Moderation, and Fair Play
+
+The system must:
+
+- define and enforce a chess-only community policy
+- prohibit politics, harassment, hate, scams, and generic off-topic posting
+- support warning, suspension, and ban workflows for repeat low-severity violations
+- support immediate action for severe abuse, cheating rings, fraud, threats, or ban evasion
+- keep community activity anchored to games, lessons, clubs, and chess discussion
+- provide abuse reporting and moderation tooling
+- support a fun-loving, welcoming, clearly apolitical community tone
+
+The system must also:
+
+- avoid offering a public gameplay API for rated or live human competition
+- support server-authoritative move submission and validation
+- support telemetry and review tools for anti-cheat investigation
+- distinguish between anti-cheat policy in benchmark, casual, and rated human modes
+
+### 12.13 Ratings and Benchmarking
 
 The system must:
 
@@ -425,7 +507,7 @@ The system must:
 - allow engine-anchor benchmarking
 - support repeatable comparisons by runtime and hardware class
 
-### 12.12 Model Intake
+### 12.14 Model Intake
 
 The system must:
 
@@ -452,6 +534,7 @@ The initial website product should include:
 - featured showmatch page
 - private room or invite flow
 - admin operations surfaces
+- lesson and coaching surfaces over time
 
 ### 13.2 Live Game Page
 
@@ -469,6 +552,7 @@ The live game page should show:
 - next-line preview panel
 - control handoff controls
 - premium-state or entitlement warnings when relevant
+- fair-play and moderation state when relevant
 
 ### 13.3 Replay Page
 
@@ -500,6 +584,8 @@ For each game, the system should preserve:
 - latency and timing
 - replay artifacts
 - audio artifact references
+- moderation actions
+- fair-play review metadata
 
 This data must support:
 
@@ -518,6 +604,7 @@ This data must support:
 - initial support exists for `Ollama`
 - future support should include `vLLM` and `llama.cpp`
 - architecture must preserve runtime abstraction
+- rated human competition should not depend on an open public gameplay API
 
 ### 15.2 Storage Requirements
 
@@ -562,6 +649,9 @@ The public `Chess Index` should:
 - prefer official publisher pages as canonical sources
 - avoid muddy licensing categories for the baseline public ladder
 - track license metadata explicitly
+- keep product branding, persona assets, lesson assets, and marketing surfaces original to LexiChess
+- prohibit unlicensed trademark, voice, likeness, or trade-dress usage
+- require explicit written approval before public claims of endorsement or affiliation
 
 This means the product should distinguish between:
 
@@ -722,6 +812,17 @@ Mitigation:
 - invest in voice, copy, and reaction quality early
 - measure repeat play and attachment to specific personalities
 
+### 19.7 IP And Brand Confusion Risk
+
+If LexiChess is described or designed too closely to legacy chess products, the product can create legal risk and market confusion instead of building its own category.
+
+Mitigation:
+
+- keep product, lesson, persona, voice, and marketing assets original
+- add naming, trademark, and content review gates before launch
+- avoid implied endorsement or affiliation without explicit written rights
+- build a differentiated `LLM-first` story around self-hosted models, live interactivity, and original character systems
+
 ## 20. Open Questions
 
 - Which subscription tiers should exist at launch, and which features belong in each one?
@@ -731,6 +832,7 @@ Mitigation:
 - Which self-hosted TTS stack is good enough for the first live referee experience?
 - Should user-to-player chat be visible to spectators by default, or only in selected public rooms?
 - Which personalities should exist at launch, and which ones should be premium?
+- What internal naming, brand, and content-review gate should every new public-facing character, lesson, and voice pack pass before release?
 
 ## 21. Appendix: Current MVP Reality Check
 
