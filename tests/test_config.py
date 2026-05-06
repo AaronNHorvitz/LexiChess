@@ -166,3 +166,21 @@ def test_settings_include_runtime_retry_and_stockfish_configuration() -> None:
     assert settings.stockfish.depth == 14
     assert settings.stockfish.multipv == 4
     assert settings.stockfish.movetime_ms == 750
+
+
+def test_settings_include_lexi_engine_configuration() -> None:
+    settings = AppSettings.from_env(
+        env={
+            "LEXICHESS_PROVIDER": "lexi_engine",
+            "LEXI_ENGINE_PATH": "engine/rust_engine/target/debug/lexichess-engine",
+            "LEXI_ENGINE_PROFILE": "aggressive",
+            "LEXI_ENGINE_DEPTH": "5",
+        },
+        dotenv_path=None,
+    )
+
+    assert settings.default_provider is ProviderName.LEXI_ENGINE
+    assert settings.lexi_engine.path.endswith("lexichess-engine")
+    assert settings.lexi_engine.profile == "aggressive"
+    assert settings.lexi_engine.depth == 5
+    assert settings.model_for("lexi_engine") == "aggressive"

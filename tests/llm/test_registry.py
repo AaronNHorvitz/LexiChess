@@ -1,7 +1,11 @@
 import pytest
 
 from lexichess.config import AppSettings
-from lexichess.llm.providers import OllamaProvider, StockfishMoveProvider
+from lexichess.llm.providers import (
+    LexiEngineProvider,
+    OllamaProvider,
+    StockfishMoveProvider,
+)
 from lexichess.llm.registry import build_provider
 
 
@@ -35,3 +39,20 @@ def test_registry_builds_stockfish_provider() -> None:
 
     assert isinstance(provider, StockfishMoveProvider)
     assert provider.model == "stockfish_club"
+
+
+def test_registry_builds_lexi_engine_provider() -> None:
+    settings = AppSettings.from_env(
+        env={
+            "LEXICHESS_PROVIDER": "lexi_engine",
+            "LEXI_ENGINE_PROFILE": "aggressive",
+            "LEXI_ENGINE_DEPTH": "4",
+        },
+        dotenv_path=None,
+    )
+
+    provider = build_provider("lexi_engine", settings)
+
+    assert isinstance(provider, LexiEngineProvider)
+    assert provider.model == "aggressive"
+    assert provider.depth == 4
